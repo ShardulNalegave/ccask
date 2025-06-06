@@ -3,7 +3,6 @@
 #include "stdlib.h"
 #include "pthread.h"
 #include "unistd.h"
-
 #include "log.h"
 
 #include "ccask_core.h"

@@ -2,9 +2,12 @@
 #ifndef CCASK_CORE_H
 #define CCASK_CORE_H
 
+#include "stdint.h"
+#include "ccask_files.h"
+
 typedef struct {
     char* data_dir;
-    int active_fd;
+    ccask_file_t* data_files_head;
 } ccask_state_t;
 
 void ccask_init();
