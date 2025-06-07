@@ -10,15 +10,20 @@
 #include "ccask_signal_handler.h"
 
 int main() {
-    ccask_signal_handler_init();
+    if (ccask_signal_handler_init() != 0)
+        return -1;
 
-    ccask_init();
-    ccask_web_server_start();
+    if (ccask_init() != 0)
+        goto cleanup;
+
+    if (ccask_web_server_start() != 0)
+        goto cleanup;
 
     while (!ccask_shutdown_signal) {
         sleep(1);
     }
 
+cleanup:
     log_info("Shutting down...");
     ccask_web_server_shutdown();
     ccask_shutdown();

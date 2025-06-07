@@ -8,7 +8,7 @@
 
 #include "log.h"
 
-static struct MHD_Daemon* ccask_web_server_daemon;
+static struct MHD_Daemon* web_server_daemon;
 
 static enum MHD_Result handler(
     void* cls,
@@ -54,8 +54,8 @@ static enum MHD_Result handler(
     return ret;
 }
 
-void ccask_web_server_start() {
-    ccask_web_server_daemon = MHD_start_daemon(
+int ccask_web_server_start() {
+    web_server_daemon = MHD_start_daemon(
         MHD_USE_THREAD_PER_CONNECTION,
         5000,
         NULL,
@@ -65,12 +65,15 @@ void ccask_web_server_start() {
         MHD_OPTION_END
     );
 
-    if (ccask_web_server_daemon == NULL) {
+    if (web_server_daemon == NULL) {
         log_fatal("Could not start ccask web-server");
-        exit(-1);
+        return -1;
     }
+
+    return 0;
 }
 
 void ccask_web_server_shutdown() {
-    MHD_stop_daemon(ccask_web_server_daemon);
+    if (web_server_daemon)
+        MHD_stop_daemon(web_server_daemon);
 }

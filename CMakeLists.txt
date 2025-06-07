@@ -20,6 +20,7 @@ set(CCASK_SOURCES
     "src/main.c"
     "src/ccask_core.c"
     "src/ccask_files.c"
+    "src/ccask_records.c"
     "src/ccask_keydir.c"
     "src/ccask_web_server.c"
     "src/ccask_signal_handler.c")

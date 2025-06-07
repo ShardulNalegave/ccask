@@ -6,6 +6,6 @@
 
 extern volatile sig_atomic_t ccask_shutdown_signal;
 
-void ccask_signal_handler_init();
+int ccask_signal_handler_init();
 
 #endif
