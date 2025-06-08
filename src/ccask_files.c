@@ -1,6 +1,7 @@
 
 #include "ccask_files.h"
 
+#include "stdio.h"
 #include "stdlib.h"
 #include "fcntl.h"
 #include "unistd.h"
@@ -10,12 +11,14 @@
 #include "errno.h"
 #include "log.h"
 
+#define ACTIVE_DATAFILE_MAX_SIZE 50 // bytes
 #define FD_INVALIDATE_DURATION 5 // seconds
 
 static const int DATAFILE_OPEN_MODE = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 static const int DATAFILE_OPEN_FLAGS = O_RDONLY;
 static const int ACTIVE_DATAFILE_OPEN_FLAGS = O_CREAT | O_RDWR | O_APPEND;
 
+static char* files_dirpath = NULL;
 static ccask_file_t *files_head = NULL;
 static ccask_file_t* files_hash_table = NULL;
 
@@ -39,6 +42,14 @@ void add_file_to_linked_list(ccask_file_t* file) {
 
     ccask_file_t* prev = NULL;
     ccask_file_t* curr = files_head;
+
+    if (file->id > files_head->id) {
+        file->previous = NULL;
+        file->next = files_head;
+        files_head->previous = file;
+        files_head = file;
+        return;
+    }
 
     while (curr) {
         if (curr->id < file->id) {
@@ -131,6 +142,9 @@ ccask_file_t* create_new_active_datafile(char* dirpath, uint64_t id) {
 }
 
 int ccask_files_init(char* dirpath) {
+    files_dirpath = malloc(strlen(dirpath) + 1);
+    strcpy(files_dirpath, dirpath);
+
     files_head = NULL;
     files_hash_table = NULL;
 
@@ -215,6 +229,7 @@ int ccask_files_init(char* dirpath) {
 }
 
 void ccask_files_destroy() {
+    free(files_dirpath);
     ccask_file_t *curr, *tmp;
 
     HASH_ITER(hh, files_hash_table, curr, tmp) {
@@ -315,8 +330,21 @@ uint8_t* ccask_files_read_chunk(uint64_t id, uint64_t pos, uint32_t len) {
     pthread_mutex_lock(&file->mutex);
     file->readers--;
     pthread_mutex_unlock(&file->mutex);
-    
     return chunk;
+}
+
+int rotate_active_datafile() {
+    ccask_file_t* new_active_file = create_new_active_datafile(files_dirpath, files_head->id + 1);
+    if (!new_active_file) {
+        log_fatal("Could not create new active file\n\t%s", strerror(errno));
+        return -1;
+    }
+
+    close(files_head->fd);
+    files_head->fd = -1;
+    files_head->active = false;
+    add_file(new_active_file);
+    return 0;
 }
 
 off_t ccask_files_write_chunk(void* buff, uint32_t len) {
@@ -335,14 +363,32 @@ off_t ccask_files_write_chunk(void* buff, uint32_t len) {
         return -1;
     }
 
-    off_t write_pos = lseek(file->fd, 0, SEEK_END);
+    off_t write_pos = lseek(file->fd, 0, SEEK_END); // also denotes current file size (as active file is append only)
     size_t to_write = len;
+
+    if (!file->active || write_pos + to_write > ACTIVE_DATAFILE_MAX_SIZE) {
+        if(rotate_active_datafile() < 0) {
+            log_error("Write chunk cancelled as rotation of active data-file failed");
+            pthread_mutex_unlock(&file->mutex);
+            return -1;
+        }
+
+        pthread_mutex_unlock(&file->mutex);
+        
+        file = files_head;
+        write_pos = 0;
+
+        pthread_mutex_lock(&file->mutex);
+        log_info("Rotation successful: Using new Active Data-File ID=%d", file->id);
+    }
+
     uint8_t* p = buff;
 
     while (to_write > 0) {
         ssize_t got = write(file->fd, p, to_write);
         if (got < 0) {
             if (errno == EINTR) continue;  // retry on signal
+            ftruncate(file->fd, write_pos);
             log_error("Couldn't write chunk to Active Data-File ID=%d\n\t%s", file->id, strerror(errno));
             pthread_mutex_unlock(&file->mutex);
             return -1;
