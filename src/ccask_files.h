@@ -4,10 +4,9 @@
 
 #include "stdint.h"
 #include "stdbool.h"
+#include "fcntl.h"
 #include "pthread.h"
 #include "uthash.h"
-
-#include "ccask_records.h"
 
 typedef struct ccask_file_t {
     uint64_t id;
@@ -31,10 +30,14 @@ typedef struct ccask_file_t {
 int ccask_files_init(char* dirpath);
 void ccask_files_destroy();
 
-ccask_file_t* ccask_files_get_active_file();
+ccask_file_t* ccask_files_get_active_datafile();
+ccask_file_t* ccask_files_get_oldest_datafile();
 ccask_file_t* ccask_files_get_file(uint64_t id);
 
 uint8_t* ccask_files_read_chunk(uint64_t id, uint64_t pos, uint32_t len);
 off_t ccask_files_write_chunk(void* buff, uint32_t len);
+
+int ccask_files_read_entire_datafile(ccask_file_t* file, uint8_t** buffer);
+int ccask_files_read_entire_hintfile(ccask_file_t* file, uint8_t** buffer);
 
 #endif

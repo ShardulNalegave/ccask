@@ -7,6 +7,7 @@
 #include "zlib.h"
 #include "log.h"
 
+#include "ccask_crc_check.h"
 #include "ccask_files.h"
 #include "ccask_keydir.h"
 #include "ccask_records.h"
@@ -35,9 +36,13 @@ int ccask_get(void* key, uint32_t key_size, void** value) {
     uint8_t* record = ccask_files_read_chunk(kd_record->file_id, kd_record->record_pos, 16 + key_size + kd_record->value_size);
     uint32_t stored_crc = ((uint32_t*)record)[0];
 
-    uint32_t crc = (uint32_t)crc32(0L, record + 4, 12);
-    crc = (uint32_t)crc32(crc, record + 16, key_size);
-    crc = (uint32_t)crc32(crc, record + 16 + key_size, kd_record->value_size);
+    uint32_t crc = ccask_crc_calculate_with_header(
+        record + 4,
+        key,
+        key_size,
+        record + 16 + key_size,
+        kd_record->value_size
+    );
 
     if (crc != stored_crc) {
         log_error("Stored CRC for key doesn't match its actual CRC, returning NULL\n\t(%d != %d)", stored_crc, crc);
@@ -73,11 +78,7 @@ int ccask_put(void* key, uint32_t key_size, void* value, uint32_t value_size) {
     memcpy(header + 4, &record->key_size, 4);
     memcpy(header + 8, &record->value_size, 4);
 
-    uint32_t crc = (uint32_t)crc32(0L, header, 12);
-    crc = (uint32_t)crc32(crc, record->key, key_size);
-    crc = (uint32_t)crc32(crc, record->value, value_size);
-
-    record->crc = crc;
+    record->crc = ccask_crc_calculate_with_datafile_record(record);
 
     uint8_t* buff;
     uint64_t buff_len = ccask_datafile_record_serialize(&buff, record);
@@ -87,7 +88,14 @@ int ccask_put(void* key, uint32_t key_size, void* value, uint32_t value_size) {
         return -1;
     }
 
-    ccask_keydir_upsert(key, key_size, ccask_files_get_active_file()->id, record_pos, value_size, record->timestamp);
+    ccask_keydir_upsert(
+        key,
+        key_size,
+        ccask_files_get_active_datafile()->id,
+        record_pos,
+        value_size,
+        record->timestamp
+    );
 
     free(record->key);
     free(record->value);

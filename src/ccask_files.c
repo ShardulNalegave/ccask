@@ -11,7 +11,7 @@
 #include "errno.h"
 #include "log.h"
 
-#define ACTIVE_DATAFILE_MAX_SIZE 50 // bytes
+#define ACTIVE_DATAFILE_MAX_SIZE 60 // bytes
 #define FD_INVALIDATE_DURATION 5 // seconds
 
 static const int DATAFILE_OPEN_MODE = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
@@ -19,11 +19,15 @@ static const int DATAFILE_OPEN_FLAGS = O_RDONLY;
 static const int ACTIVE_DATAFILE_OPEN_FLAGS = O_CREAT | O_RDWR | O_APPEND;
 
 static char* files_dirpath = NULL;
-static ccask_file_t *files_head = NULL;
+static ccask_file_t *files_head = NULL, *files_tail = NULL;
 static ccask_file_t* files_hash_table = NULL;
 
-ccask_file_t* ccask_files_get_active_file() {
+ccask_file_t* ccask_files_get_active_datafile() {
     return files_head;
+}
+
+ccask_file_t* ccask_files_get_oldest_datafile() {
+    return files_tail;
 }
 
 ccask_file_t* ccask_files_get_file(uint64_t id) {
@@ -35,6 +39,7 @@ ccask_file_t* ccask_files_get_file(uint64_t id) {
 void add_file_to_linked_list(ccask_file_t* file) {
     if (!files_head) {
         files_head = file;
+        files_tail = file;
         file->next = NULL;
         file->previous = NULL;
         return;
@@ -43,6 +48,7 @@ void add_file_to_linked_list(ccask_file_t* file) {
     ccask_file_t* prev = NULL;
     ccask_file_t* curr = files_head;
 
+    // insert at head
     if (file->id > files_head->id) {
         file->previous = NULL;
         file->next = files_head;
@@ -51,6 +57,7 @@ void add_file_to_linked_list(ccask_file_t* file) {
         return;
     }
 
+    // insert in middle
     while (curr) {
         if (curr->id < file->id) {
             file->next = curr;
@@ -64,9 +71,11 @@ void add_file_to_linked_list(ccask_file_t* file) {
         curr = curr->next;
     }
 
+    // insert at tail
     prev->next = file;
     file->previous = prev;
     file->next = NULL;
+    files_tail = file;
     return;
 }
 
@@ -146,6 +155,7 @@ int ccask_files_init(char* dirpath) {
     strcpy(files_dirpath, dirpath);
 
     files_head = NULL;
+    files_tail = NULL;
     files_hash_table = NULL;
 
     DIR* dir = opendir(dirpath);
@@ -400,4 +410,43 @@ off_t ccask_files_write_chunk(void* buff, uint32_t len) {
 
     pthread_mutex_unlock(&file->mutex);
     return write_pos;
+}
+
+int ccask_files_read_entire_datafile(ccask_file_t* file, uint8_t** buffer) {
+    int fd = get_datafile_fd(file->datafile_path);
+    if (fd < 0) {
+        log_error("Couldn't get a file-descriptor when reading datafile ID=%d", file->id);
+        *buffer = NULL;
+        return -1;
+    }
+
+    size_t file_size = lseek(fd, 0, SEEK_END);
+    size_t to_read = file_size;
+    off_t offset = 0;
+
+    *buffer = malloc(to_read);
+    uint8_t* p = *buffer;
+
+    while (to_read > 0) {
+        ssize_t got = pread(fd, p, to_read, offset);
+        if (got < 0) {
+            if (errno == EINTR) continue;  // retry on signal
+            log_error("Couldn't read Data-File ID=%d\n\t%s", file->id, strerror(errno));
+            free(*buffer);
+            *buffer = NULL;
+            return -1;
+        } else if (got == 0) {
+            log_error("Unexpected EOF while reading chunk from Data-File ID=%d", file->id);
+            free(*buffer);
+            *buffer = NULL;
+            return -1;
+        }
+
+        to_read -= got;
+        p += got;
+        offset += got;
+    }
+
+    close(fd);
+    return file_size;
 }

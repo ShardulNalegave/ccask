@@ -22,9 +22,9 @@ typedef struct {
 } ccask_hintfile_record_t;
 
 uint64_t ccask_datafile_record_serialize(uint8_t** buffer, ccask_datafile_record_t* record);
-ccask_datafile_record_t* ccask_datafile_record_deserialize(uint8_t* buffer);
+uint64_t ccask_datafile_record_deserialize(uint8_t* buffer, ccask_datafile_record_t** record);
 
 uint64_t ccask_hintfile_record_serialize(uint8_t** buffer, ccask_hintfile_record_t* record);
-ccask_hintfile_record_t* ccask_hintfile_record_deserialize(uint8_t* buffer);
+uint64_t ccask_hintfile_record_deserialize(uint8_t* buffer, ccask_hintfile_record_t** record);
 
 #endif

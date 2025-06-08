@@ -20,7 +20,7 @@ uint64_t ccask_datafile_record_serialize(uint8_t** buffer, ccask_datafile_record
     return record_size;
 }
 
-ccask_datafile_record_t* ccask_datafile_record_deserialize(uint8_t* buffer) {
+uint64_t ccask_datafile_record_deserialize(uint8_t* buffer, ccask_datafile_record_t** out_record) {
     ccask_datafile_record_t* record = malloc(sizeof(ccask_datafile_record_t));
 
     record->crc = ((uint32_t*)buffer)[0];
@@ -34,7 +34,8 @@ ccask_datafile_record_t* ccask_datafile_record_deserialize(uint8_t* buffer) {
     memcpy(record->key, buffer + 16, record->key_size);
     memcpy(record->value, buffer + 16 + record->key_size, record->value_size);
 
-    return record;
+    *out_record = record;
+    return 16 + record->key_size + record->value_size;
 }
 
 uint64_t ccask_hintfile_record_serialize(uint8_t** buffer, ccask_hintfile_record_t* record) {
@@ -51,7 +52,7 @@ uint64_t ccask_hintfile_record_serialize(uint8_t** buffer, ccask_hintfile_record
     return record_size;
 }
 
-ccask_hintfile_record_t* ccask_hintfile_record_deserialize(uint8_t* buffer) {
+uint64_t ccask_hintfile_record_deserialize(uint8_t* buffer, ccask_hintfile_record_t** out_record) {
     ccask_hintfile_record_t* record = malloc(sizeof(ccask_hintfile_record_t));
 
     record->timestamp = ((uint32_t*)buffer)[0];
@@ -62,5 +63,6 @@ ccask_hintfile_record_t* ccask_hintfile_record_deserialize(uint8_t* buffer) {
     record->key = malloc(record->key_size);
     memcpy(record->key, buffer + 20, record->key_size);
 
-    return record;
+    *out_record = record;
+    return 20 + record->key_size;
 }

@@ -1,12 +1,57 @@
 
 #include "ccask_keydir.h"
+
 #include "log.h"
+#include "ccask_files.h"
+#include "ccask_records.h"
+#include "ccask_records_iter.h"
+#include "ccask_crc_check.h"
 
 static ccask_keydir_record_t* keydir_hash_table;
 
 void ccask_keydir_recover(ccask_state_t* state) {
     keydir_hash_table = NULL;
-    // TODO: Read all existing data files and hint files to recover persisted data
+    ccask_file_t* datafile = ccask_files_get_oldest_datafile();
+    while (datafile) {
+        ccask_datafile_iter_t* iter;
+        if (ccask_datafile_record_iter_open(datafile, &iter) < 0) {
+            log_error("Couldn't read datafile ID=%d while recovery", datafile->id);
+            continue;
+        }
+
+        int num_recovered = 0;
+        ccask_datafile_record_t* record;
+
+        uint64_t record_pos = iter->offset;
+        ccask_datafile_record_iter_next(iter, &record);
+
+        while (record) {
+            uint32_t crc = ccask_crc_calculate_with_datafile_record(record);
+            if (crc != record->crc) {
+                log_error("CRC check failed for record from datafile ID=%s while recovery", datafile->id);
+            } else if (ccask_keydir_upsert(
+                record->key,
+                record->key_size,
+                datafile->id,
+                record_pos,
+                record->value_size,
+                record->timestamp
+            ) < 0) {
+                log_error("Error while recovering a record from datafile ID=%d", datafile->id);
+            }
+
+            num_recovered++;
+            free(record);
+            uint64_t record_pos = iter->offset;
+            ccask_datafile_record_iter_next(iter, &record);
+        }
+
+        log_info("Datafile ID=%d recovered (%d records)", datafile->id, num_recovered);
+        ccask_datafile_record_iter_close(iter);
+        datafile = datafile->previous;
+    }
+
+    log_info("Key-Directory recovery complete");
 }
 
 void ccask_keydir_free_all() {

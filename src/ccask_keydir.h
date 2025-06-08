@@ -19,8 +19,6 @@ typedef struct {
     UT_hash_handle hh;
 } ccask_keydir_record_t;
 
-// TODO: Following functions are only here as a checklist. Change their declaration to what it should actually be and implement them.
-
 void ccask_keydir_recover(ccask_state_t* state);
 void ccask_keydir_free_all();
 
