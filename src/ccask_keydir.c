@@ -1,5 +1,6 @@
 
 #include "ccask_keydir.h"
+#include "log.h"
 
 static ccask_keydir_record_t* keydir_hash_table;
 
@@ -38,7 +39,7 @@ int ccask_keydir_upsert(
     uint8_t* key,
     uint32_t key_size,
     uint64_t file_id,
-    uint64_t value_pos,
+    uint64_t record_pos,
     uint32_t value_size,
     uint32_t timestamp
 ) {
@@ -47,7 +48,7 @@ int ccask_keydir_upsert(
 
     if (entry) {
         entry->file_id = file_id;
-        entry->value_pos = value_pos;
+        entry->record_pos = record_pos;
         entry->value_size = value_size;
         entry->timestamp = timestamp;
         return 0;
@@ -67,7 +68,7 @@ int ccask_keydir_upsert(
     memcpy(entry->key, key, key_size);
 
     entry->file_id = file_id;
-    entry->value_pos = value_pos;
+    entry->record_pos = record_pos;
     entry->value_size = value_size;
     entry->timestamp = timestamp;
 

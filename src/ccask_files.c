@@ -10,6 +10,8 @@
 #include "errno.h"
 #include "log.h"
 
+#define FD_INVALIDATE_DURATION 5 // seconds
+
 static const int DATAFILE_OPEN_MODE = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 static const int DATAFILE_OPEN_FLAGS = O_RDONLY;
 static const int ACTIVE_DATAFILE_OPEN_FLAGS = O_CREAT | O_RDWR | O_APPEND;
@@ -76,17 +78,13 @@ char* get_datafile_path(char* dirpath, uint64_t id) {
     return fpath;
 }
 
-int get_datafile_fd(char* dirpath, uint64_t id) {
-    char* fpath = get_datafile_path(dirpath, id);
+int get_datafile_fd(char* fpath) {
     int fd = open(fpath, DATAFILE_OPEN_FLAGS, DATAFILE_OPEN_MODE);
-    free(fpath);
     return fd;
 }
 
-int get_active_datafile_fd(char* dirpath, uint64_t id) {
-    char* fpath = get_datafile_path(dirpath, id);
+int get_active_datafile_fd(char* fpath) {
     int fd = open(fpath, ACTIVE_DATAFILE_OPEN_FLAGS, DATAFILE_OPEN_MODE);
-    free(fpath);
     return fd;
 }
 
@@ -96,6 +94,10 @@ ccask_file_t* allocate_datafile_node(char* dirpath, uint64_t id) {
     datafile->fd = -1;
     datafile->active = false;
     datafile->has_hint = false;
+    datafile->datafile_path = get_datafile_path(dirpath, id);
+    datafile->readers = 0;
+    datafile->is_invalidator_running = false;
+    datafile->last_accessed = time(NULL);
     datafile->next = NULL;
     datafile->previous = NULL;
 
@@ -105,7 +107,9 @@ ccask_file_t* allocate_datafile_node(char* dirpath, uint64_t id) {
 }
 
 ccask_file_t* create_new_active_datafile(char* dirpath, uint64_t id) {
-    int fd = get_active_datafile_fd(dirpath, id);
+    char* fpath = get_datafile_path(dirpath, id);
+
+    int fd = get_active_datafile_fd(fpath);
     if (fd < 0) return NULL;
 
     ccask_file_t* active_file = malloc(sizeof(ccask_file_t));
@@ -113,6 +117,10 @@ ccask_file_t* create_new_active_datafile(char* dirpath, uint64_t id) {
     active_file->fd = fd;
     active_file->active = true;
     active_file->has_hint = false;
+    active_file->datafile_path = fpath;
+    active_file->readers = 0;
+    active_file->is_invalidator_running = false;
+    active_file->last_accessed = time(NULL);
     active_file->next = NULL;
     active_file->previous = NULL;
 
@@ -193,7 +201,7 @@ int ccask_files_init(char* dirpath) {
         }
         add_file(active_file);
     } else {
-        int fd = get_active_datafile_fd(dirpath, files_head->id);
+        int fd = get_active_datafile_fd(files_head->datafile_path);
         files_head->active = true;
         files_head->fd = fd;
         if (fd < 0) {
@@ -225,12 +233,125 @@ void ccask_files_destroy() {
             curr->next->previous = curr->previous;
         }
 
-        pthread_mutex_destroy(&curr->mutex);
-
         HASH_DEL(files_hash_table, curr);
+
+        pthread_mutex_destroy(&curr->mutex);
+        free(curr->datafile_path);
         free(curr);
     }
 
     files_head = NULL;
     files_hash_table = NULL;
+}
+
+void* fd_invalidate_thread(void* arg) {
+    ccask_file_t* file = (ccask_file_t*)arg;
+    while (true) {
+        sleep(FD_INVALIDATE_DURATION);
+        pthread_mutex_lock(&file->mutex);
+
+        time_t now = time(NULL);
+        if (!file->active && file->readers == 0 && file->fd >= 0 && (now - file->last_accessed) >= FD_INVALIDATE_DURATION) {
+            close(file->fd);
+            file->fd = -1;
+            file->is_invalidator_running = false;
+            pthread_mutex_unlock(&file->mutex);
+            return NULL;
+        }
+
+        pthread_mutex_unlock(&file->mutex);
+    }
+}
+
+uint8_t* ccask_files_read_chunk(uint64_t id, uint64_t pos, uint32_t len) {
+    ccask_file_t* file = ccask_files_get_file(id);
+    if (!file) return NULL;
+
+    uint8_t* chunk = malloc(len);
+    if (!chunk) return NULL;
+
+    pthread_mutex_lock(&file->mutex);
+    if (file->fd < 0) {
+        file->fd = get_datafile_fd(file->datafile_path);
+        if (file->fd < 0) {
+            log_error("Couldn't acquire lock on Data-File ID=%d for reading chunk", id);
+            pthread_mutex_unlock(&file->mutex);
+            free(chunk);
+            return NULL;
+        }
+    }
+
+    file->readers++;
+    file->last_accessed = time(NULL);
+    if (!file->active && !file->is_invalidator_running) {
+        pthread_t invalidator;
+        pthread_create(&invalidator, NULL, fd_invalidate_thread, (void*)file);
+        pthread_detach(invalidator);
+    }
+    pthread_mutex_unlock(&file->mutex);
+
+    size_t to_read = len;
+    off_t offset = pos;
+    uint8_t* p = chunk;
+
+    while (to_read > 0) {
+        ssize_t got = pread(file->fd, p, to_read, offset);
+        if (got < 0) {
+            if (errno == EINTR) continue;  // retry on signal
+            log_error("Couldn't read chunk from Data-File ID=%d\n\t%s", id, strerror(errno));
+            free(chunk);
+            return NULL;
+        } else if (got == 0) {
+            log_error("Unexpected EOF while reading chunk from Data-File ID=%d", id);
+            free(chunk);
+            return NULL;
+        }
+
+        to_read -= got;
+        p += got;
+        offset += got;
+    }
+
+    pthread_mutex_lock(&file->mutex);
+    file->readers--;
+    pthread_mutex_unlock(&file->mutex);
+    
+    return chunk;
+}
+
+off_t ccask_files_write_chunk(void* buff, uint32_t len) {
+    ccask_file_t* file = files_head;
+    if (!file) {
+        log_error("Active Data-File was NULL during write chunk");
+        return -1;
+    }
+
+    pthread_mutex_lock(&file->mutex);
+
+    // write are allowed only on active data-files, thus an fd should already be present
+    if (!file->active || file->fd < 0) {
+        log_error("Write chunk requested on non-active or closed active Data-File ID=%d", file->id);
+        pthread_mutex_unlock(&file->mutex);
+        return -1;
+    }
+
+    off_t write_pos = lseek(file->fd, 0, SEEK_END);
+    size_t to_write = len;
+    uint8_t* p = buff;
+
+    while (to_write > 0) {
+        ssize_t got = write(file->fd, p, to_write);
+        if (got < 0) {
+            if (errno == EINTR) continue;  // retry on signal
+            log_error("Couldn't write chunk to Active Data-File ID=%d\n\t%s", file->id, strerror(errno));
+            pthread_mutex_unlock(&file->mutex);
+            return -1;
+        }
+
+        to_write -= got;
+        p += got;
+    }
+
+    pthread_mutex_unlock(&file->mutex);
+    return write_pos;
 }

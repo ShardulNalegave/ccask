@@ -3,10 +3,11 @@ project(ccask C)
 
 add_subdirectory(vendor/log)
 
+find_package(ZLIB REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(MHD REQUIRED libmicrohttpd)
 
-include_directories(${MHD_INCLUDE_DIRS})
+include_directories(${MHD_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
 link_directories(${MHD_LIBRARY_DIRS})
 
 set(CCASK_HEADERS
@@ -26,6 +27,5 @@ set(CCASK_SOURCES
     "src/ccask_signal_handler.c")
 
 add_executable(ccask ${CCASK_HEADERS} ${CCASK_SOURCES})
-target_link_libraries(ccask ${MHD_LIBRARIES})
-target_link_libraries(ccask log-c)
+target_link_libraries(ccask PRIVATE log-c ${MHD_LIBRARIES} ZLIB::ZLIB)
 target_include_directories(ccask PRIVATE "vendor/uthash")

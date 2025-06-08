@@ -17,14 +17,14 @@ typedef struct {
     uint32_t timestamp;
     uint32_t key_size;
     uint32_t value_size;
-    uint64_t value_pos;
+    uint64_t record_pos;
     uint8_t* key;
 } ccask_hintfile_record_t;
 
-int datafile_record_serialize(uint8_t* buffer, ccask_datafile_record_t* record);
-ccask_datafile_record_t* datafile_record_deserialize(uint8_t* buffer);
+uint64_t ccask_datafile_record_serialize(uint8_t** buffer, ccask_datafile_record_t* record);
+ccask_datafile_record_t* ccask_datafile_record_deserialize(uint8_t* buffer);
 
-int hintfile_record_serialize(uint8_t* buffer, ccask_hintfile_record_t* record);
-ccask_hintfile_record_t* hintfile_record_deserialize(uint8_t* buffer);
+uint64_t ccask_hintfile_record_serialize(uint8_t** buffer, ccask_hintfile_record_t* record);
+ccask_hintfile_record_t* ccask_hintfile_record_deserialize(uint8_t* buffer);
 
 #endif

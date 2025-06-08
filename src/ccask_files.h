@@ -14,6 +14,12 @@ typedef struct ccask_file_t {
     int fd;
     bool active;
     bool has_hint;
+    char* datafile_path;
+
+    int readers;
+    bool is_invalidator_running;
+    time_t last_accessed;
+
     pthread_mutex_t mutex;
 
     struct ccask_file_t* next;
@@ -27,5 +33,8 @@ void ccask_files_destroy();
 
 ccask_file_t* ccask_files_get_active_file();
 ccask_file_t* ccask_files_get_file(uint64_t id);
+
+uint8_t* ccask_files_read_chunk(uint64_t id, uint64_t pos, uint32_t len);
+off_t ccask_files_write_chunk(void* buff, uint32_t len);
 
 #endif

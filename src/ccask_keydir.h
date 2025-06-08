@@ -12,7 +12,7 @@ typedef struct {
     uint32_t key_size;
 
     uint64_t file_id;
-    uint64_t value_pos;
+    uint64_t record_pos;
     uint32_t value_size;
     uint32_t timestamp;
 
@@ -31,7 +31,7 @@ int ccask_keydir_upsert(
     uint8_t* key,
     uint32_t key_size,
     uint64_t file_id,
-    uint64_t value_pos,
+    uint64_t record_pos,
     uint32_t value_size,
     uint32_t timestamp
 );
