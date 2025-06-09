@@ -11,6 +11,7 @@
 #include "ccask_files.h"
 #include "ccask_keydir.h"
 #include "ccask_records.h"
+#include "ccask_hintfile_gen.h"
 
 static ccask_state_t state;
 
@@ -21,12 +22,14 @@ int ccask_init() {
         return -1;
 
     ccask_keydir_recover(&state);
+    ccask_hintfile_generator_init();
     return 0;
 }
 
 void ccask_shutdown() {
-    ccask_files_destroy();
+    ccask_hintfile_generator_shutdown();
     ccask_keydir_free_all();
+    ccask_files_destroy();
 }
 
 int ccask_get(void* key, uint32_t key_size, void** value) {

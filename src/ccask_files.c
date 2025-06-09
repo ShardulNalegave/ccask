@@ -11,11 +11,14 @@
 #include "errno.h"
 #include "log.h"
 
+#include "ccask_hintfile_gen.h"
+
 #define ACTIVE_DATAFILE_MAX_SIZE 60 // bytes
 #define FD_INVALIDATE_DURATION 5 // seconds
 
 static const int DATAFILE_OPEN_MODE = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 static const int DATAFILE_OPEN_FLAGS = O_RDONLY;
+static const int HINTFILE_OPEN_FLAGS = O_CREAT | O_RDWR | O_APPEND;
 static const int ACTIVE_DATAFILE_OPEN_FLAGS = O_CREAT | O_RDWR | O_APPEND;
 
 static char* files_dirpath = NULL;
@@ -84,17 +87,31 @@ void add_file(ccask_file_t* file) {
     HASH_ADD(hh, files_hash_table, id, sizeof(uint64_t), file);
 }
 
-char* get_datafile_path(char* dirpath, uint64_t id) {
-    int dir_len = strlen(dirpath);
+char* get_datafile_path(uint64_t id) {
+    int dir_len = strlen(files_dirpath);
     char* fpath = malloc(dir_len + 1 + 256 + 2); // directory path length + 1 for '/' + 256 for max file name length + 1 for '\0'
 
-    strcpy(fpath, dirpath);
+    strcpy(fpath, files_dirpath);
     if (fpath[dir_len - 1] != '/') {
         fpath[dir_len] = '/';
         dir_len++;
     }
 
     sprintf(&fpath[dir_len], "%d.data", id);
+    return fpath;
+}
+
+char* ccask_get_hintfile_path(uint64_t id) {
+    int dir_len = strlen(files_dirpath);
+    char* fpath = malloc(dir_len + 1 + 256 + 2); // directory path length + 1 for '/' + 256 for max file name length + 1 for '\0'
+
+    strcpy(fpath, files_dirpath);
+    if (fpath[dir_len - 1] != '/') {
+        fpath[dir_len] = '/';
+        dir_len++;
+    }
+
+    sprintf(&fpath[dir_len], "%d.hint", id);
     return fpath;
 }
 
@@ -108,13 +125,13 @@ int get_active_datafile_fd(char* fpath) {
     return fd;
 }
 
-ccask_file_t* allocate_datafile_node(char* dirpath, uint64_t id) {
+ccask_file_t* allocate_datafile_node(uint64_t id, bool has_hint) {
     ccask_file_t* datafile = malloc(sizeof(ccask_file_t));
     datafile->id = id;
     datafile->fd = -1;
     datafile->active = false;
-    datafile->has_hint = false;
-    datafile->datafile_path = get_datafile_path(dirpath, id);
+    datafile->datafile_path = get_datafile_path(id);
+    datafile->hintfile_path = has_hint ? ccask_get_hintfile_path(id) : NULL;
     datafile->readers = 0;
     datafile->is_invalidator_running = false;
     datafile->last_accessed = time(NULL);
@@ -126,8 +143,8 @@ ccask_file_t* allocate_datafile_node(char* dirpath, uint64_t id) {
     return datafile;
 }
 
-ccask_file_t* create_new_active_datafile(char* dirpath, uint64_t id) {
-    char* fpath = get_datafile_path(dirpath, id);
+ccask_file_t* create_new_active_datafile(uint64_t id) {
+    char* fpath = get_datafile_path(id);
 
     int fd = get_active_datafile_fd(fpath);
     if (fd < 0) return NULL;
@@ -136,8 +153,8 @@ ccask_file_t* create_new_active_datafile(char* dirpath, uint64_t id) {
     active_file->id = id;
     active_file->fd = fd;
     active_file->active = true;
-    active_file->has_hint = false;
     active_file->datafile_path = fpath;
+    active_file->hintfile_path = NULL;
     active_file->readers = 0;
     active_file->is_invalidator_running = false;
     active_file->last_accessed = time(NULL);
@@ -151,8 +168,7 @@ ccask_file_t* create_new_active_datafile(char* dirpath, uint64_t id) {
 }
 
 int ccask_files_init(char* dirpath) {
-    files_dirpath = malloc(strlen(dirpath) + 1);
-    strcpy(files_dirpath, dirpath);
+    files_dirpath = strdup(dirpath);
 
     files_head = NULL;
     files_tail = NULL;
@@ -200,8 +216,10 @@ int ccask_files_init(char* dirpath) {
             free(fname);
 
             if (strcmp(ext, ".data") == 0) {
-                log_info("Data File (ID=%d)", f_id);
-                ccask_file_t* file = allocate_datafile_node(dirpath, f_id);
+                bool has_hint = access(ccask_get_hintfile_path(f_id), F_OK) == 0;
+
+                log_info("Data File (ID=%d) %s", f_id, has_hint ? ":: Has Hints" : "");
+                ccask_file_t* file = allocate_datafile_node(f_id, has_hint);
                 add_file(file);
             }
         }
@@ -211,14 +229,14 @@ int ccask_files_init(char* dirpath) {
     closedir(dir);
 
     if (!files_head) {
-        ccask_file_t* active_file = create_new_active_datafile(dirpath, 0);
+        ccask_file_t* active_file = create_new_active_datafile(0);
         if (!active_file) {
             log_fatal("Could not create new active file\n\t%s", strerror(errno));
             return -1;
         }
         add_file(active_file);
-    } else if (files_head->has_hint) {
-        ccask_file_t* active_file = create_new_active_datafile(dirpath, files_head->id + 1);
+    } else if (files_head->hintfile_path != NULL) {
+        ccask_file_t* active_file = create_new_active_datafile(files_head->id + 1);
         if (!active_file) {
             log_fatal("Could not create new active file\n\t%s", strerror(errno));
             return -1;
@@ -262,6 +280,7 @@ void ccask_files_destroy() {
 
         pthread_mutex_destroy(&curr->mutex);
         free(curr->datafile_path);
+        if (curr->hintfile_path) free(curr->hintfile_path);
         free(curr);
     }
 
@@ -344,7 +363,7 @@ uint8_t* ccask_files_read_chunk(uint64_t id, uint64_t pos, uint32_t len) {
 }
 
 int rotate_active_datafile() {
-    ccask_file_t* new_active_file = create_new_active_datafile(files_dirpath, files_head->id + 1);
+    ccask_file_t* new_active_file = create_new_active_datafile(files_head->id + 1);
     if (!new_active_file) {
         log_fatal("Could not create new active file\n\t%s", strerror(errno));
         return -1;
@@ -353,6 +372,8 @@ int rotate_active_datafile() {
     close(files_head->fd);
     files_head->fd = -1;
     files_head->active = false;
+
+    ccask_hintfile_generate(files_head);
     add_file(new_active_file);
     return 0;
 }
@@ -449,4 +470,69 @@ int ccask_files_read_entire_datafile(ccask_file_t* file, uint8_t** buffer) {
 
     close(fd);
     return file_size;
+}
+
+int ccask_files_read_entire_hintfile(ccask_file_t* file, uint8_t** buffer) {
+    int fd = ccask_get_hintfile_fd(file->hintfile_path);
+    if (fd < 0) {
+        log_error("Couldn't get a file-descriptor when reading hintfile ID=%d", file->id);
+        *buffer = NULL;
+        return -1;
+    }
+
+    size_t file_size = lseek(fd, 0, SEEK_END);
+    size_t to_read = file_size;
+    off_t offset = 0;
+
+    *buffer = malloc(to_read);
+    uint8_t* p = *buffer;
+
+    while (to_read > 0) {
+        ssize_t got = pread(fd, p, to_read, offset);
+        if (got < 0) {
+            if (errno == EINTR) continue;  // retry on signal
+            log_error("Couldn't read Hint-File ID=%d\n\t%s", file->id, strerror(errno));
+            free(*buffer);
+            *buffer = NULL;
+            return -1;
+        } else if (got == 0) {
+            log_error("Unexpected EOF while reading chunk from Hint-File ID=%d", file->id);
+            free(*buffer);
+            *buffer = NULL;
+            return -1;
+        }
+
+        to_read -= got;
+        p += got;
+        offset += got;
+    }
+
+    close(fd);
+    return file_size;
+}
+
+int ccask_get_hintfile_fd(char* fpath) {
+    int fd = open(fpath, HINTFILE_OPEN_FLAGS, DATAFILE_OPEN_MODE);
+    return fd;
+}
+
+off_t ccask_files_write_chunk_to_fd(int fd, void* buff, uint32_t len) {
+    off_t write_pos = lseek(fd, 0, SEEK_END);
+    size_t to_write = len;
+    uint8_t* p = buff;
+
+    while (to_write > 0) {
+        ssize_t got = write(fd, p, to_write);
+        if (got < 0) {
+            if (errno == EINTR) continue;  // retry on signal
+            ftruncate(fd, write_pos);
+            log_error("Couldn't write chunk to file\n\t%s", strerror(errno));
+            return -1;
+        }
+
+        to_write -= got;
+        p += got;
+    }
+
+    return write_pos;
 }

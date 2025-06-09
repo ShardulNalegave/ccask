@@ -9,46 +9,90 @@
 
 static ccask_keydir_record_t* keydir_hash_table;
 
-void ccask_keydir_recover(ccask_state_t* state) {
-    keydir_hash_table = NULL;
-    ccask_file_t* datafile = ccask_files_get_oldest_datafile();
-    while (datafile) {
-        ccask_datafile_iter_t* iter;
-        if (ccask_datafile_record_iter_open(datafile, &iter) < 0) {
-            log_error("Couldn't read datafile ID=%d while recovery", datafile->id);
-            continue;
+int keydir_recover_hintfile(ccask_file_t* file) {
+    ccask_hintfile_iter_t* iter;
+    if (ccask_hintfile_record_iter_open(file, &iter) < 0) {
+        log_error("Couldn't read hintfile ID=%d while recovery", file->id);
+        return -1;
+    }
+
+    int num_recovered = 0;
+    ccask_hintfile_record_t* record;
+
+    ccask_hintfile_record_iter_next(iter, &record);
+
+    while (record) {
+        if (ccask_keydir_upsert(
+            record->key,
+            record->key_size,
+            file->id,
+            record->record_pos,
+            record->value_size,
+            record->timestamp
+        ) < 0) {
+            log_error("Error while recovering a record from datafile ID=%d", file->id);
         }
 
-        int num_recovered = 0;
-        ccask_datafile_record_t* record;
+        num_recovered++;
+        free(record);
+        ccask_hintfile_record_iter_next(iter, &record);
+    }
 
+    log_info("Hintfile ID=%d recovered (%d records)", file->id, num_recovered);
+    ccask_hintfile_record_iter_close(iter);
+    return 0;
+}
+
+int keydir_recover_datafile(ccask_file_t* file) {
+    ccask_datafile_iter_t* iter;
+    if (ccask_datafile_record_iter_open(file, &iter) < 0) {
+        log_error("Couldn't read datafile ID=%d while recovery", file->id);
+        return -1;
+    }
+
+    int num_recovered = 0;
+    ccask_datafile_record_t* record;
+
+    uint64_t record_pos = iter->offset;
+    ccask_datafile_record_iter_next(iter, &record);
+
+    while (record) {
+        uint32_t crc = ccask_crc_calculate_with_datafile_record(record);
+        if (crc != record->crc) {
+            log_error("CRC check failed for record from datafile ID=%s while recovery", file->id);
+        } else if (ccask_keydir_upsert(
+            record->key,
+            record->key_size,
+            file->id,
+            record_pos,
+            record->value_size,
+            record->timestamp
+        ) < 0) {
+            log_error("Error while recovering a record from datafile ID=%d", file->id);
+        } else {
+            num_recovered++;
+        }
+        
+        free(record);
         uint64_t record_pos = iter->offset;
         ccask_datafile_record_iter_next(iter, &record);
+    }
 
-        while (record) {
-            uint32_t crc = ccask_crc_calculate_with_datafile_record(record);
-            if (crc != record->crc) {
-                log_error("CRC check failed for record from datafile ID=%s while recovery", datafile->id);
-            } else if (ccask_keydir_upsert(
-                record->key,
-                record->key_size,
-                datafile->id,
-                record_pos,
-                record->value_size,
-                record->timestamp
-            ) < 0) {
-                log_error("Error while recovering a record from datafile ID=%d", datafile->id);
-            }
+    log_info("Datafile ID=%d recovered (%d records)", file->id, num_recovered);
+    ccask_datafile_record_iter_close(iter);
+    return 0;
+}
 
-            num_recovered++;
-            free(record);
-            uint64_t record_pos = iter->offset;
-            ccask_datafile_record_iter_next(iter, &record);
+void ccask_keydir_recover(ccask_state_t* state) {
+    keydir_hash_table = NULL;
+    ccask_file_t* file = ccask_files_get_oldest_datafile();
+    while (file) {
+        if (file->hintfile_path != NULL) {
+            keydir_recover_hintfile(file);
+        } else {
+            keydir_recover_datafile(file);
         }
-
-        log_info("Datafile ID=%d recovered (%d records)", datafile->id, num_recovered);
-        ccask_datafile_record_iter_close(iter);
-        datafile = datafile->previous;
+        file = file->previous;
     }
 
     log_info("Key-Directory recovery complete");

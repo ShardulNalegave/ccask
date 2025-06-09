@@ -12,8 +12,9 @@ typedef struct ccask_file_t {
     uint64_t id;
     int fd;
     bool active;
-    bool has_hint;
+
     char* datafile_path;
+    char* hintfile_path;
 
     int readers;
     bool is_invalidator_running;
@@ -39,5 +40,9 @@ off_t ccask_files_write_chunk(void* buff, uint32_t len);
 
 int ccask_files_read_entire_datafile(ccask_file_t* file, uint8_t** buffer);
 int ccask_files_read_entire_hintfile(ccask_file_t* file, uint8_t** buffer);
+
+char* ccask_get_hintfile_path(uint64_t id);
+int ccask_get_hintfile_fd(char* fpath);
+off_t ccask_files_write_chunk_to_fd(int fd, void* buff, uint32_t len);
 
 #endif
