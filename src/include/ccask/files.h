@@ -11,6 +11,7 @@ typedef struct ccask_file_t {
     uint64_t file_id;
     int fd;
     time_t last_accessed;
+    bool is_active;
     bool is_fd_invalidator_running;
     pthread_rwlock_t rwlock;
 

@@ -1,37 +1,57 @@
 cmake_minimum_required(VERSION 3.15)
-project(ccask C)
+project(ccask VERSION 0.1.0 LANGUAGES C CXX)
 
-add_subdirectory(vendor/log)
+set(CMAKE_C_STANDARD        11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 
+option(BUILD_SHARED_LIBS "Build ccask as a shared library" ON)
+option(CCASK_ENABLE_LOGGING "Enable logging support via spdlog" OFF)
+
+add_subdirectory("vendor/spdlog" EXCLUDE_FROM_ALL)
+
+find_package(Threads REQUIRED)
 find_package(ZLIB REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(MHD REQUIRED libmicrohttpd)
+find_package(GTest REQUIRED)
 
-include_directories(${MHD_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
-link_directories(${MHD_LIBRARY_DIRS})
+set(CCASK_PUBLIC_INCLUDES
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
 
-set(CCASK_HEADERS
-    "src/ccask_core.h"
-    "src/ccask_files.h"
-    "src/ccask_records.h"
-    "src/ccask_records_iter.h"
-    "src/ccask_hintfile_gen.h"
-    "src/ccask_keydir.h"
-    "src/ccask_web_server.h"
-    "src/ccask_signal_handler.h"
-    "src/ccask_crc_check.h")
 set(CCASK_SOURCES
-    "src/main.c"
-    "src/ccask_core.c"
-    "src/ccask_files.c"
-    "src/ccask_records.c"
-    "src/ccask_records_iter.c"
-    "src/ccask_hintfile_gen.c"
-    "src/ccask_keydir.c"
-    "src/ccask_web_server.c"
-    "src/ccask_signal_handler.c"
-    "src/ccask_crc_check.c")
+    "src/reader.c"
+    "src/hint.c"
+    "src/records.c"
+    "src/iterator.c"
+    "src/errors.c"
+    "src/utils.c")
 
-add_executable(ccask ${CCASK_HEADERS} ${CCASK_SOURCES})
-target_link_libraries(ccask PRIVATE log-c ${MHD_LIBRARIES} ZLIB::ZLIB)
-target_include_directories(ccask PRIVATE "vendor/uthash")
+add_library(ccask ${CCASK_SOURCES})
+
+set_target_properties(ccask PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
+)
+
+target_compile_features(ccask PUBLIC c_std_11)
+
+target_include_directories(ccask
+    PUBLIC
+        $<BUILD_INTERFACE:${CCASK_PUBLIC_INCLUDES}>
+        $<INSTALL_INTERFACE:include>
+    PRIVATE
+        src/include
+        ${ZLIB_INCLUDE_DIRS}
+        vendor/uthash
+        vendor/spdlog/include
+)
+
+target_link_libraries(ccask
+    PRIVATE
+        Threads::Threads
+        ZLIB::ZLIB
+)
+
+if(CCASK_ENABLE_LOGGING)
+    target_compile_definitions(ccask PRIVATE CCASK_ENABLE_LOGGING=1)
+    target_link_libraries(ccask PRIVATE spdlog::spdlog)
+endif()

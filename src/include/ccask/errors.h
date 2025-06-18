@@ -11,7 +11,8 @@
 extern uint8_t ccask_errno;
 
 typedef enum ccask_error_t {
-    ERR_UNKNOWN = 0
+    ERR_UNKNOWN = 0,
+    ERR_ITERATOR_END = 1
 } ccask_error_t;
 
 char* ccask_strerror(uint8_t eno);
