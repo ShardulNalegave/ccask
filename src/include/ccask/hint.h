@@ -4,7 +4,7 @@
 
 #include "stdint.h"
 
-int ccask_hintfile_generator_init(void);
+void ccask_hintfile_generator_init(void);
 void ccask_hintfile_generator_shutdown(void);
 int ccask_hintfile_generate(uint64_t file_id);
 

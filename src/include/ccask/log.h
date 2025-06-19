@@ -6,9 +6,6 @@
 extern "C" {
 #endif
 
-void ccask_logger_init();
-void ccask_logger_shutdown();
-
 void log_trace(const char *fmt, ...);
 void log_debug(const char *fmt, ...);
 void log_info(const char *fmt, ...);

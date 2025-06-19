@@ -112,3 +112,6 @@ ssize_t safe_readv(int fd, struct iovec *iov, int iovcnt);
 
 ssize_t safe_pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset);
 ssize_t safe_preadv(int fd, struct iovec *iov, int iovcnt, off_t offset);
+
+ssize_t safe_pwrite(int fd, const void *buf, ssize_t len, off_t offset);
+ssize_t safe_pread(int fd, const void *buf, ssize_t len, off_t offset);

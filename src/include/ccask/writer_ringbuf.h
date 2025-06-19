@@ -4,16 +4,23 @@
 
 #include "stddef.h"
 #include "stdbool.h"
+#include "ccask/records.h"
 
 typedef struct ccask_writer_ringbuf_t ccask_writer_ringbuf_t;
 
-ccask_writer_ringbuf_t* ccask_writer_ringbuf_create(size_t capacity);
-void ccask_writer_ringbuf_destroy(ccask_writer_ringbuf_t *rb);
+int ccask_writer_ringbuf_init(void);
+void ccask_writer_ringbuf_shutdown(void);
+void ccask_writer_ringbuf_destroy(void);
 
-bool ccask_writer_ringbuf_push(ccask_writer_ringbuf_t *rb, void *record);
-void* ccask_writer_ringbuf_pop(ccask_writer_ringbuf_t *rb);
+size_t ccask_writer_ringbuf_count(void);
 
-void ccask_writer_ringbuf_shutdown(ccask_writer_ringbuf_t *rb);
-size_t ccask_writer_ringbuf_count(const ccask_writer_ringbuf_t *rb);
+int ccask_writer_ringbuf_push(
+    uint32_t timestamp,
+    void *key,
+    uint32_t key_size,
+    void *value,
+    uint32_t value_size
+);
+int ccask_writer_ringbuf_pop(ccask_datafile_record_t record);
 
 #endif

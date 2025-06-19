@@ -18,7 +18,7 @@ typedef struct thread_handle_t {
 
 static thread_handle_t *threads;
 
-int ccask_hintfile_generator_init(void) {
+void ccask_hintfile_generator_init(void) {
     threads = NULL;
 }
 
@@ -81,14 +81,28 @@ void* hintfile_generator_thread(void* arg) {
         }
     }
 
+    free_datafile_record(record);
+    free_hintfile_record(hint_record);
+    ccask_datafile_iter_close(&iter);
     close(hintfile_fd);
     log_info("Hintfile generation completed (File ID = %" PRIu64 ")", file_id);
 }
 
 int ccask_hintfile_generate(uint64_t file_id) {
     thread_handle_t* handle = malloc(sizeof(thread_handle_t));
-    pthread_create(&handle->thread, NULL, hintfile_generator_thread, &file_id);
+
+    int res; int retry_counter = 0;
+    do {
+        res = pthread_create(&handle->thread, NULL, hintfile_generator_thread, &file_id);
+    } while (res != 0 && retry_counter++ <= 5);
+
+    if (res != 0) {
+        log_error("Could not start Hintfile generation thread for ID = %" PRIu64, file_id);
+        free(handle);
+        return CCASK_FAIL;
+    }
 
     handle->next = threads;
     threads = handle;
+    return CCASK_OK;
 }

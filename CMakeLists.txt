@@ -5,7 +5,7 @@ set(CMAKE_C_STANDARD        11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 option(BUILD_SHARED_LIBS "Build ccask as a shared library" ON)
-option(CCASK_ENABLE_LOGGING "Enable logging support via spdlog" OFF)
+option(CCASK_ENABLE_LOGGING "Enable logging support via spdlog" ON)
 
 add_subdirectory("vendor/spdlog" EXCLUDE_FROM_ALL)
 
@@ -18,12 +18,18 @@ set(CCASK_PUBLIC_INCLUDES
 )
 
 set(CCASK_SOURCES
+    "src/core.c"
+    "src/files.c"
+    "src/keydir.c"
     "src/reader.c"
+    "src/writer.c"
+    "src/writer_ringbuf.c"
     "src/hint.c"
     "src/records.c"
     "src/iterator.c"
     "src/errors.c"
-    "src/utils.c")
+    "src/utils.c"
+    "src/log.cc")
 
 add_library(ccask ${CCASK_SOURCES})
 
