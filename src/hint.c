@@ -67,25 +67,40 @@ void* hintfile_generator_thread(void* arg) {
     while ((record_pos = ccask_datafile_iter_next(&iter, record)) >= 0) {
         ccask_datafile_record_header_t header = ccask_get_datafile_record_header(record);
         void *key = ccask_get_datafile_record_key(record);
-        ccask_create_hintfile_record(record, header.timestamp, header.key_size, header.value_size, record_pos, key);
+        int res = ccask_create_hintfile_record(
+            hint_record,
+            header.timestamp,
+            header.key_size,
+            header.value_size,
+            record_pos,
+            key
+        );
 
-        if (safe_writev(hintfile_fd, hint_record, 2) != CCASK_OK) {
-            log_error("Hintfile generation failed (File ID = %" PRIu64 ")", file_id);
-            retry_counter = 0;
-            do {
-                close(hintfile_fd);
-                res = ccask_files_delete_hintfile(file_id); // delete the partially written hintfile
-            } while (res == CCASK_RETRY && retry_counter++ <= 5);
-
-            if (res != CCASK_OK) log_error("Couldn't delete partially written hintfile ID = %" PRIu64, file_id);
-
-            free_datafile_record(record);
-            free_hintfile_record(hint_record);
-            return NULL;
-        }
+        if (res != CCASK_OK)
+            goto generation_failed;
+            
+        if (safe_writev(hintfile_fd, hint_record, 2) != CCASK_OK)
+            goto generation_failed;
 
         free_datafile_record(record);
         free_hintfile_record(hint_record);
+        continue;
+
+generation_failed:
+        log_error("Hintfile generation failed (File ID = %" PRIu64 ")", file_id);
+        close(hintfile_fd);
+        free_datafile_record(record);
+        free_hintfile_record(hint_record);
+        ccask_datafile_iter_close(&iter);
+
+        retry_counter = 0;
+        do {
+            close(hintfile_fd);
+            res = ccask_files_delete_hintfile(file_id); // delete the partially written hintfile
+        } while (res == CCASK_RETRY && retry_counter++ <= 5);
+
+        if (res != CCASK_OK) log_error("Couldn't delete partially written hintfile ID = %" PRIu64, file_id);
+        return NULL;
     }
 
     ccask_datafile_iter_close(&iter);

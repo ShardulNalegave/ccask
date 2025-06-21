@@ -32,7 +32,7 @@ static int recover_hintfile(ccask_file_t *file) {
     while ((record_pos = ccask_hintfile_iter_next(&iter, record)) >= 0) {
         ccask_hintfile_record_header_t header = ccask_get_hintfile_record_header(record);
         void *key = ccask_get_hintfile_record_key(record);
-
+        
         retry_counter = 0;
         do {
             res = ccask_keydir_upsert(

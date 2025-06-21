@@ -50,11 +50,19 @@ int ccask_shutdown(void) {
 
 int ccask_get(void* key, uint32_t key_size, void** value) {
     ccask_keydir_record_t *kd_record = ccask_keydir_find(key, key_size);
-    if (!kd_record) return CCASK_OK;
+    if (kd_record == NULL) {
+        *value = NULL;
+        return CCASK_OK;
+    }
 
     ccask_datafile_record_t record;
     ccask_allocate_datafile_record(record, kd_record->key_size, kd_record->value_size);
-    ccask_read_datafile_record(kd_record->file_id, record, kd_record->record_pos);
+    int res = ccask_read_datafile_record(kd_record->file_id, record, kd_record->record_pos);
+    if (res != CCASK_OK) {
+        log_error("Failed to read datafile record");
+        *value = NULL;
+        return CCASK_FAIL;
+    }
 
     ccask_datafile_record_header_t header = ccask_get_datafile_record_header(record);
     void *read_key = ccask_get_datafile_record_key(record);

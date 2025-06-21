@@ -235,7 +235,7 @@ int ccask_files_init(const char *data_dir) {
 
             if (ext == FILE_DATA) {
                 bool has_hint = access(build_filepath(files_state.data_dir, file_id, FILE_HINT), F_OK) == 0;
-                log_info("Data File (ID=%d) %s", file_id, has_hint ? ":: Has Hints" : "");
+                log_info("Found Data File (ID=%d) %s", file_id, has_hint ? ":: Has Hints" : "");
                 ccask_file_t* file = allocate_datafile_node(file_id, has_hint);
                 add_file(file);
             }
@@ -310,7 +310,7 @@ void ccask_files_shutdown(void) {
 }
 
 int ccask_files_delete_hintfile(uint64_t file_id) {
-    char* fpath = build_filepath(files_state.data_dir, file_id, FILE_DATA);
+    char* fpath = build_filepath(files_state.data_dir, file_id, FILE_HINT);
     if (unlink(fpath) == 0) return CCASK_OK;
 
     switch (errno) {

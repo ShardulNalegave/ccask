@@ -82,7 +82,7 @@ int ccask_allocate_hintfile_record(ccask_datafile_record_t record, uint32_t key_
 
     bool done = true;
     int i = 0;
-    for (; i < 3; i++) {
+    for (; i < 2; i++) {
         int retry_num = 0;
         do {
             record[i].iov_base = malloc(record[i].iov_len);

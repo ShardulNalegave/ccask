@@ -22,12 +22,12 @@ int main() {
     char *value4 = "value4";
     char *value5 = "value5";
     
-    ccask_put(key1, 5, value1, 7);
-    ccask_put(key2, 5, value2, 7);
-    ccask_put(key3, 5, value3, 7);
-    ccask_put(key4, 5, value4, 7);
-    ccask_put(key5, 5, value5, 7);
-    sleep(1);
+    // ccask_put(key1, 5, value1, 7);
+    // ccask_put(key2, 5, value2, 7);
+    // ccask_put(key3, 5, value3, 7);
+    // ccask_put(key4, 5, value4, 7);
+    // ccask_put(key5, 5, value5, 7);
+    // sleep(1);
 
     int res;
     char *get_val;
