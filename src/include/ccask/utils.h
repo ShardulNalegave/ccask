@@ -30,13 +30,12 @@ uint16_t read_be16(const uint8_t *buf);
 uint32_t read_be32(const uint8_t *buf);
 uint64_t read_be64(const uint8_t *buf);
 
-ssize_t safe_writev(int fd, const struct iovec *iov, int iovcnt);
-ssize_t safe_readv(int fd, struct iovec *iov, int iovcnt);
+int safe_writev(int fd, const struct iovec *iov, int iovcnt);
+int safe_readv(int fd, struct iovec *iov, int iovcnt);
 
-ssize_t safe_pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset);
-ssize_t safe_preadv(int fd, struct iovec *iov, int iovcnt, off_t offset);
+int safe_pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset);
+int safe_preadv(int fd, struct iovec *iov, int iovcnt, off_t offset);
 
-ssize_t safe_pwrite(int fd, const void *buf, ssize_t len, off_t offset);
-ssize_t safe_pread(int fd, const void *buf, ssize_t len, off_t offset);
+int safe_pread(int fd, void *buf, ssize_t len, off_t offset);
 
 #endif

@@ -34,11 +34,11 @@ uint64_t ccask_datafile_iter_next(ccask_datafile_iter_t *iter, ccask_datafile_re
         return CCASK_FAIL;
     }
 
-    ssize_t size = safe_pread(iter->fd, record[0].iov_base, DATAFILE_RECORD_HEADER_SIZE, iter->offset);
-    if (size == 0) {
-        ccask_errno = ERR_ITERATOR_END;
+    int res = safe_pread(iter->fd, record[0].iov_base, DATAFILE_RECORD_HEADER_SIZE, iter->offset);
+    if (res < 0) {
+        if (ccask_errno == ERR_UNEXPECTED_EOF) ccask_errno = ERR_ITERATOR_END;
         return CCASK_FAIL;
-    } else if (size < 0) return size; // value of size variable is the status code
+    }
 
     ccask_datafile_record_header_t *header = ccask_get_datafile_record_header(record);
     record[1].iov_len = header->key_size;
@@ -67,7 +67,7 @@ uint64_t ccask_datafile_iter_next(ccask_datafile_iter_t *iter, ccask_datafile_re
         return CCASK_FAIL;
     }
 
-    size = safe_preadv(iter->fd, record + 1, 2, iter->offset + DATAFILE_RECORD_HEADER_SIZE);
+    ssize_t size = safe_preadv(iter->fd, record + 1, 2, iter->offset + DATAFILE_RECORD_HEADER_SIZE);
     if (size == 0) {
         ccask_errno = ERR_UNEXPECTED_EOF;
         return CCASK_FAIL;
@@ -110,11 +110,11 @@ uint64_t ccask_hintfile_iter_next(ccask_hintfile_iter_t *iter, ccask_hintfile_re
         return CCASK_FAIL;
     }
 
-    ssize_t size = safe_pread(iter->fd, record[0].iov_base, HINTFILE_RECORD_HEADER_SIZE, iter->offset);
-    if (size == 0) {
-        ccask_errno = ERR_ITERATOR_END;
+    int res = safe_pread(iter->fd, record[0].iov_base, HINTFILE_RECORD_HEADER_SIZE, iter->offset);
+    if (res < 0) {
+        if (ccask_errno == ERR_UNEXPECTED_EOF) ccask_errno = ERR_ITERATOR_END;
         return CCASK_FAIL;
-    } else if (size < 0) return size; // value of size variable is the status code
+    }
 
     ccask_hintfile_record_header_t *header = ccask_get_hintfile_record_header(record);
     record[1].iov_len = header->key_size;
@@ -130,7 +130,7 @@ uint64_t ccask_hintfile_iter_next(ccask_hintfile_iter_t *iter, ccask_hintfile_re
         return CCASK_FAIL;
     }
 
-    size = safe_preadv(iter->fd, record + 1, 2, iter->offset + HINTFILE_RECORD_HEADER_SIZE);
+    ssize_t size = safe_preadv(iter->fd, record + 1, 2, iter->offset + HINTFILE_RECORD_HEADER_SIZE);
     if (size == 0) {
         ccask_errno = ERR_UNEXPECTED_EOF;
         return CCASK_FAIL;

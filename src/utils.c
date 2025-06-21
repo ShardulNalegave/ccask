@@ -7,7 +7,9 @@
 #include "string.h"
 #include "inttypes.h"
 #include "endian.h"
+#include "errno.h"
 #include "zlib.h"
+#include "ccask/errors.h"
 
 file_ext_t parse_filename(const char* name, uint64_t *id) {
     const char *dot = strrchr(name, '.');
@@ -107,11 +109,189 @@ inline uint64_t read_be64(const uint8_t *buf) {
     return be64toh(be);
 }
 
-ssize_t safe_writev(int fd, const struct iovec *iov, int iovcnt);
-ssize_t safe_readv(int fd, struct iovec *iov, int iovcnt);
+static inline size_t iov_total_len(const struct iovec *iov, int iovcnt) {
+    size_t sum = 0;
+    for (int i = 0; i < iovcnt; i++) sum += iov[i].iov_len;
+    return sum;
+}
 
-ssize_t safe_pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset);
-ssize_t safe_preadv(int fd, struct iovec *iov, int iovcnt, off_t offset);
+int safe_writev(int fd, const struct iovec *iov, int iovcnt) {
+    if (fd < 0 || iov == NULL || iovcnt <= 0) {
+        return CCASK_FAIL;
+    }
 
-ssize_t safe_pwrite(int fd, const void *buf, ssize_t len, off_t offset);
-ssize_t safe_pread(int fd, const void *buf, ssize_t len, off_t offset);
+    struct iovec local_iov[iovcnt];
+    memcpy(local_iov, iov, iovcnt * sizeof(struct iovec)); // shallow-copy
+
+    int current_iov_idx = 0;
+    ssize_t total_written = 0;
+    
+    while (current_iov_idx < iovcnt) {
+        ssize_t nwritten = writev(fd, &local_iov[current_iov_idx], iovcnt - current_iov_idx);
+
+        if (nwritten < 0) {
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
+            return CCASK_FAIL;
+        }
+
+        total_written += nwritten;
+
+        while (current_iov_idx < iovcnt && nwritten > 0) {
+            if (nwritten < local_iov[current_iov_idx].iov_len) {
+                local_iov[current_iov_idx].iov_base = (char *)local_iov[current_iov_idx].iov_base + nwritten;
+                local_iov[current_iov_idx].iov_len -= nwritten;
+                nwritten = 0;
+            } else {
+                nwritten -= local_iov[current_iov_idx].iov_len;
+                current_iov_idx++;
+            }
+        }
+    }
+
+    return CCASK_OK;
+}
+
+int safe_readv(int fd, struct iovec *iov, int iovcnt) {
+    if (fd < 0 || iov == NULL || iovcnt <= 0) {
+        return CCASK_FAIL;
+    }
+
+    struct iovec local_iov[iovcnt];
+    memcpy(local_iov, iov, iovcnt * sizeof(struct iovec)); // shallow-copy
+
+    int current_iov_idx = 0;
+    ssize_t total_read = 0;
+
+    while (current_iov_idx < iovcnt) {
+        ssize_t nread = readv(fd, &local_iov[current_iov_idx], iovcnt - current_iov_idx);
+
+        if (nread < 0) {
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
+            return CCASK_FAIL;
+        }
+        
+        if (nread == 0) {
+            ccask_errno = ERR_UNEXPECTED_EOF;
+            return CCASK_FAIL;
+        }
+
+        total_read += nread;
+
+        while (current_iov_idx < iovcnt && nread > 0) {
+            if (nread < local_iov[current_iov_idx].iov_len) {
+                local_iov[current_iov_idx].iov_base = (char *)local_iov[current_iov_idx].iov_base + nread;
+                local_iov[current_iov_idx].iov_len -= nread;
+                nread = 0;
+            } else {
+                nread -= local_iov[current_iov_idx].iov_len;
+                current_iov_idx++;
+            }
+        }
+    }
+
+    return CCASK_OK;
+}
+
+int safe_pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset) {
+    if (fd < 0 || iov == NULL || iovcnt <= 0) {
+        return CCASK_FAIL;
+    }
+
+    struct iovec local_iov[iovcnt];
+    memcpy(local_iov, iov, iovcnt * sizeof(struct iovec)); // shallow-copy
+
+    int current_iov_idx = 0;
+    ssize_t total_written = 0;
+    
+    while (current_iov_idx < iovcnt) {
+        ssize_t nwritten = pwritev(fd, &local_iov[current_iov_idx], iovcnt - current_iov_idx, offset + total_written);
+
+        if (nwritten < 0) {
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
+            return CCASK_FAIL;
+        }
+
+        total_written += nwritten;
+
+        while (current_iov_idx < iovcnt && nwritten > 0) {
+            if (nwritten < local_iov[current_iov_idx].iov_len) {
+                local_iov[current_iov_idx].iov_base = (char *)local_iov[current_iov_idx].iov_base + nwritten;
+                local_iov[current_iov_idx].iov_len -= nwritten;
+                nwritten = 0;
+            } else {
+                nwritten -= local_iov[current_iov_idx].iov_len;
+                current_iov_idx++;
+            }
+        }
+    }
+
+    return CCASK_OK;
+}
+
+int safe_preadv(int fd, struct iovec *iov, int iovcnt, off_t offset) {
+    if (fd < 0 || iov == NULL || iovcnt <= 0) {
+        return CCASK_FAIL;
+    }
+
+    struct iovec local_iov[iovcnt];
+    memcpy(local_iov, iov, iovcnt * sizeof(struct iovec)); // shallow-copy
+
+    int current_iov_idx = 0;
+    ssize_t total_read = 0;
+
+    while (current_iov_idx < iovcnt) {
+        ssize_t nread = preadv(fd, &local_iov[current_iov_idx], iovcnt - current_iov_idx, offset + total_read);
+
+        if (nread < 0) {
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
+            return CCASK_FAIL;
+        }
+        
+        if (nread == 0) {
+            ccask_errno = ERR_UNEXPECTED_EOF;
+            return CCASK_FAIL;
+        }
+
+        total_read += nread;
+
+        while (current_iov_idx < iovcnt && nread > 0) {
+            if (nread < local_iov[current_iov_idx].iov_len) {
+                local_iov[current_iov_idx].iov_base = (char *)local_iov[current_iov_idx].iov_base + nread;
+                local_iov[current_iov_idx].iov_len -= nread;
+                nread = 0;
+            } else {
+                nread -= local_iov[current_iov_idx].iov_len;
+                current_iov_idx++;
+            }
+        }
+    }
+
+    return CCASK_OK;
+}
+
+int safe_pread(int fd, void *buf, ssize_t len, off_t offset) {
+    if (len < 0 || !buf) {
+        return CCASK_FAIL;
+    }
+
+    ssize_t to_read = len;
+    char *p = buf;
+    off_t pos = offset;
+
+    while (to_read > 0) {
+        ssize_t n = pread(fd, p, to_read, pos);
+        if (n < 0) {
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
+            return CCASK_FAIL;
+        } else if (n == 0) {
+            ccask_errno = ERR_UNEXPECTED_EOF;
+            return CCASK_FAIL;
+        }
+
+        p += n;
+        pos += n;
+        to_read -= n;
+    }
+
+    return CCASK_OK;
+}
