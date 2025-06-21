@@ -43,12 +43,12 @@ static int write_record(ccask_datafile_record_t record) {
 
     pthread_rwlock_unlock(&file->rwlock);
 
-    ccask_datafile_record_header_t *header = ccask_get_datafile_record_header(record);
+    ccask_datafile_record_header_t header = ccask_get_datafile_record_header(record);
     void *key = ccask_get_datafile_record_key(record);
     
     int retry_counter = 0;
     do {
-        res = ccask_keydir_upsert(key, header->key_size, file->file_id, pos, header->value_size, header->timestamp);
+        res = ccask_keydir_upsert(key, header.key_size, file->file_id, pos, header.value_size, header.timestamp);
     } while (res == CCASK_RETRY && retry_counter++ <= 5);
 
     if (res != CCASK_OK) {
@@ -62,10 +62,11 @@ static int write_record(ccask_datafile_record_t record) {
 static void* writer_thread_main(void*) {
     ccask_datafile_record_t record;
     while (true) {
-        ccask_writer_ringbuf_pop(record);
-        if (!record) break;
+        int res = ccask_writer_ringbuf_pop(record);
+        if (res != CCASK_OK) break;
 
         write_record(record);
+        free_datafile_record(record);
     }
 }
 

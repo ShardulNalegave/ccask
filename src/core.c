@@ -56,22 +56,22 @@ int ccask_get(void* key, uint32_t key_size, void** value) {
     ccask_allocate_datafile_record(record, kd_record->key_size, kd_record->value_size);
     ccask_read_datafile_record(kd_record->file_id, record, kd_record->record_pos);
 
-    ccask_datafile_record_header_t *header = ccask_get_datafile_record_header(record);
+    ccask_datafile_record_header_t header = ccask_get_datafile_record_header(record);
     void *read_key = ccask_get_datafile_record_key(record);
     void *read_value = ccask_get_datafile_record_value(record);
 
     uint32_t crc = calculate_crc32(
-        header->timestamp,
-        header->key_size,
-        header->value_size,
-        key,
+        header.timestamp,
+        header.key_size,
+        header.value_size,
+        read_key,
         read_value
     );
 
-    if (crc != header->crc) {
+    if (crc != header.crc) {
         log_error(
-            "Stored CRC for key doesn't match its actual CRC, returning NULL\n\t(%" PRIu32" != %" PRIu32 ")",
-            header->crc, crc
+            "Stored CRC for key doesn't match its actual CRC, returning NULL (%" PRIu32" != %" PRIu32 ")",
+            header.crc, crc
         );
         free_datafile_record(record);
         return CCASK_FAIL;

@@ -40,9 +40,9 @@ uint64_t ccask_datafile_iter_next(ccask_datafile_iter_t *iter, ccask_datafile_re
         return CCASK_FAIL;
     }
 
-    ccask_datafile_record_header_t *header = ccask_get_datafile_record_header(record);
-    record[1].iov_len = header->key_size;
-    record[2].iov_len = header->value_size;
+    ccask_datafile_record_header_t header = ccask_get_datafile_record_header(record);
+    record[1].iov_len = header.key_size;
+    record[2].iov_len = header.value_size;
     
     retry_counter = 0;
     do {
@@ -116,8 +116,8 @@ uint64_t ccask_hintfile_iter_next(ccask_hintfile_iter_t *iter, ccask_hintfile_re
         return CCASK_FAIL;
     }
 
-    ccask_hintfile_record_header_t *header = ccask_get_hintfile_record_header(record);
-    record[1].iov_len = header->key_size;
+    ccask_hintfile_record_header_t header = ccask_get_hintfile_record_header(record);
+    record[1].iov_len = header.key_size;
     
     retry_counter = 0;
     do {

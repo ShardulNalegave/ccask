@@ -34,7 +34,8 @@ void ccask_hintfile_generator_shutdown(void) {
 }
 
 void* hintfile_generator_thread(void* arg) {
-    uint64_t file_id = *(uint64_t*)arg;
+    ccask_file_t *file = (ccask_file_t*)arg;
+    uint64_t file_id = file->file_id;
     int res; int retry_counter = 0;
 
     // get file-descriptor for new hintfile
@@ -64,9 +65,9 @@ void* hintfile_generator_thread(void* arg) {
     ccask_datafile_record_t record;
     ccask_hintfile_record_t hint_record;
     while ((record_pos = ccask_datafile_iter_next(&iter, record)) >= 0) {
-        ccask_datafile_record_header_t *header = ccask_get_datafile_record_header(record);
+        ccask_datafile_record_header_t header = ccask_get_datafile_record_header(record);
         void *key = ccask_get_datafile_record_key(record);
-        ccask_create_hintfile_record(record, header->timestamp, header->key_size, header->value_size, record_pos, key);
+        ccask_create_hintfile_record(record, header.timestamp, header.key_size, header.value_size, record_pos, key);
 
         if (safe_writev(hintfile_fd, hint_record, 2) != CCASK_OK) {
             log_error("Hintfile generation failed (File ID = %" PRIu64 ")", file_id);
@@ -77,27 +78,31 @@ void* hintfile_generator_thread(void* arg) {
             } while (res == CCASK_RETRY && retry_counter++ <= 5);
 
             if (res != CCASK_OK) log_error("Couldn't delete partially written hintfile ID = %" PRIu64, file_id);
+
+            free_datafile_record(record);
+            free_hintfile_record(hint_record);
             return NULL;
         }
+
+        free_datafile_record(record);
+        free_hintfile_record(hint_record);
     }
 
-    free_datafile_record(record);
-    free_hintfile_record(hint_record);
     ccask_datafile_iter_close(&iter);
     close(hintfile_fd);
     log_info("Hintfile generation completed (File ID = %" PRIu64 ")", file_id);
 }
 
-int ccask_hintfile_generate(uint64_t file_id) {
+int ccask_hintfile_generate(ccask_file_t* file) {
     thread_handle_t* handle = malloc(sizeof(thread_handle_t));
 
     int res; int retry_counter = 0;
     do {
-        res = pthread_create(&handle->thread, NULL, hintfile_generator_thread, &file_id);
+        res = pthread_create(&handle->thread, NULL, hintfile_generator_thread, file);
     } while (res != 0 && retry_counter++ <= 5);
 
     if (res != 0) {
-        log_error("Could not start Hintfile generation thread for ID = %" PRIu64, file_id);
+        log_error("Could not start Hintfile generation thread for ID = %" PRIu64, file->file_id);
         free(handle);
         return CCASK_FAIL;
     }

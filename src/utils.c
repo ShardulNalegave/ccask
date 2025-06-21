@@ -71,8 +71,8 @@ inline uint32_t calculate_crc32(
     uint32_t crc = (uint32_t)crc32(0, (unsigned char*)&timestamp, 4);
     crc = (uint32_t)crc32(crc, (unsigned char*)&key_size, 4);
     crc = (uint32_t)crc32(crc, (unsigned char*)&value_size, 4);
-    crc = (uint32_t)crc32(crc, (unsigned char*)&key, key_size);
-    crc = (uint32_t)crc32(crc, (unsigned char*)&value, value_size);
+    crc = (uint32_t)crc32(crc, (unsigned char*)key, key_size);
+    crc = (uint32_t)crc32(crc, (unsigned char*)value, value_size);
     return crc;
 }
 

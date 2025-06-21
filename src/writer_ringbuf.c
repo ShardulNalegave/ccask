@@ -132,8 +132,7 @@ int ccask_writer_ringbuf_pop(ccask_datafile_record_t record) {
 
     if (ringbuf->shutdown && ringbuf->tail == ringbuf->head) {
         pthread_mutex_unlock(&ringbuf->mutex);
-        record = NULL;
-        return CCASK_OK;
+        return CCASK_FAIL;
     }
 
     memcpy(record, ringbuf->buf[ringbuf->tail], sizeof(ccask_datafile_record_t)); // shallow-copy

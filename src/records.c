@@ -60,6 +60,16 @@ int ccask_create_datafile_record(
     return CCASK_OK;
 }
 
+ccask_datafile_record_header_t ccask_get_datafile_record_header(ccask_datafile_record_t record) {
+    uint8_t *header_buf = record[0].iov_base;
+    ccask_datafile_record_header_t header;
+    header.crc = read_be32(header_buf);
+    header.timestamp = read_be32(header_buf + 4);
+    header.key_size = read_be32(header_buf + 8);
+    header.value_size = read_be32(header_buf + 12);
+    return header;
+}
+
 void free_datafile_record(ccask_datafile_record_t record) {
     if (record[0].iov_base) free(record[0].iov_base);
     if (record[1].iov_base) free(record[1].iov_base);
@@ -118,4 +128,14 @@ int ccask_create_hintfile_record(
 void free_hintfile_record(ccask_hintfile_record_t record) {
     if (record[0].iov_base) free(record[0].iov_base);
     if (record[1].iov_base) free(record[1].iov_base);
+}
+
+ccask_hintfile_record_header_t ccask_get_hintfile_record_header(ccask_hintfile_record_t record) {
+    uint8_t *header_buf = record[0].iov_base;
+    ccask_hintfile_record_header_t header;
+    header.timestamp = read_be32(header_buf);
+    header.key_size = read_be32(header_buf + 4);
+    header.value_size = read_be32(header_buf + 8);
+    header.record_pos = read_be32(header_buf + 12);
+    return header;
 }

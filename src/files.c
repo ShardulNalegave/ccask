@@ -10,6 +10,7 @@
 #include "inttypes.h"
 #include "pthread.h"
 #include "uthash.h"
+#include "ccask/hint.h"
 #include "ccask/utils.h"
 #include "ccask/errors.h"
 #include "ccask/log.h"
@@ -118,7 +119,7 @@ inline int ccask_files_get_datafile_fd(uint64_t file_id) {
 }
 
 inline int ccask_files_get_hintfile_fd(uint64_t file_id) {
-    char* fpath = build_filepath(files_state.data_dir, file_id, FILE_DATA);
+    char* fpath = build_filepath(files_state.data_dir, file_id, FILE_HINT);
     int fd = open(fpath, HINTFILE_OPEN_FLAGS, DATAFILE_OPEN_MODE);
     if (fd >= 0) return fd;
 
@@ -155,7 +156,9 @@ static int create_new_active_datafile(uint64_t id, ccask_file_t *file) {
     file->next = NULL;
     file->previous = NULL;
 
-    log_info("Created new Active DataFile ID =%" PRIu64, id);
+    pthread_rwlock_init(&file->rwlock, NULL);
+
+    log_info("Created new Active DataFile ID = %" PRIu64, id);
     return CCASK_OK;
 }
 
@@ -200,6 +203,12 @@ int ccask_files_init(const char *data_dir) {
         closedir(dir);
         ccask_errno = ERR_NO_MEMORY;
         return CCASK_FAIL;
+    }
+
+    strcpy(entry_path, data_dir);
+    if (!has_trailing_slash) {
+        entry_path[dir_len] = '/';
+        dir_len++;
     }
 
     files_state.data_dir = strdup(data_dir);
@@ -331,5 +340,6 @@ int ccask_files_rotate(void) {
     files_state.head->is_active = false;
 
     add_file(file);
+    ccask_hintfile_generate(files_state.head->next);
     return CCASK_OK;
 }

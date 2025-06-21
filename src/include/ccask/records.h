@@ -29,10 +29,7 @@ int ccask_create_datafile_record(
 );
 
 void free_datafile_record(ccask_datafile_record_t record);
-
-static inline ccask_datafile_record_header_t* ccask_get_datafile_record_header(ccask_datafile_record_t record) {
-    return (ccask_datafile_record_header_t*)record[0].iov_base;
-}
+ccask_datafile_record_header_t ccask_get_datafile_record_header(ccask_datafile_record_t record);
 
 static inline void* ccask_get_datafile_record_key(ccask_datafile_record_t record) {
     return record[1].iov_base;
@@ -67,10 +64,7 @@ int ccask_create_hintfile_record(
 );
 
 void free_hintfile_record(ccask_hintfile_record_t record);
-
-static inline ccask_hintfile_record_header_t* ccask_get_hintfile_record_header(ccask_hintfile_record_t record) {
-    return (ccask_hintfile_record_header_t*)record[0].iov_base;
-}
+ccask_hintfile_record_header_t ccask_get_hintfile_record_header(ccask_hintfile_record_t record);
 
 static inline void* ccask_get_hintfile_record_key(ccask_hintfile_record_t record) {
     return record[1].iov_base;

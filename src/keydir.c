@@ -30,26 +30,27 @@ static int recover_hintfile(ccask_file_t *file) {
     int record_pos;
     ccask_hintfile_record_t record;
     while ((record_pos = ccask_hintfile_iter_next(&iter, record)) >= 0) {
-        ccask_hintfile_record_header_t *header = ccask_get_hintfile_record_header(record);
+        ccask_hintfile_record_header_t header = ccask_get_hintfile_record_header(record);
         void *key = ccask_get_hintfile_record_key(record);
 
         retry_counter = 0;
         do {
             res = ccask_keydir_upsert(
-                key, header->key_size,
+                key, header.key_size,
                 file->file_id,
                 record_pos,
-                header->value_size,
-                header->timestamp
+                header.value_size,
+                header.timestamp
             );
         } while (res == CCASK_RETRY && retry_counter++ <= 5);
 
         if (res != CCASK_OK) {
             log_error("Couldn't recover Hintfile ID = %" PRIu64 " record at position = %" PRIu64, file->file_id, record_pos);
         }
+
+        free_hintfile_record(record); // free memory used by current record's buffers
     }
 
-    free_hintfile_record(record);
     ccask_hintfile_iter_close(&iter);
     log_info("Recovered Hintfile ID = %" PRIu64, file->file_id);
     return CCASK_OK;
@@ -72,26 +73,27 @@ static int recover_datafile(ccask_file_t *file) {
     int record_pos;
     ccask_datafile_record_t record;
     while ((record_pos = ccask_datafile_iter_next(&iter, record)) >= 0) {
-        ccask_datafile_record_header_t *header = ccask_get_datafile_record_header(record);
+        ccask_datafile_record_header_t header = ccask_get_datafile_record_header(record);
         void *key = ccask_get_datafile_record_key(record);
 
         retry_counter = 0;
         do {
             res = ccask_keydir_upsert(
-                key, header->key_size,
+                key, header.key_size,
                 file->file_id,
                 record_pos,
-                header->value_size,
-                header->timestamp
+                header.value_size,
+                header.timestamp
             );
         } while (res == CCASK_RETRY && retry_counter++ <= 5);
 
         if (res != CCASK_OK) {
             log_error("Couldn't recover Datafile ID = %" PRIu64 " record at position = %" PRIu64, file->file_id, record_pos);
         }
+
+        free_datafile_record(record); // free memory used by current record's buffers
     }
 
-    free_datafile_record(record);
     ccask_datafile_iter_close(&iter);
     log_info("Recovered Datafile ID = %" PRIu64, file->file_id);
     return CCASK_OK;
@@ -193,7 +195,7 @@ int ccask_keydir_upsert(
     entry->value_size = value_size;
     entry->timestamp = timestamp;
 
-    HASH_ADD_KEYPTR(hh, hash_table, key, key_size, entry);
+    HASH_ADD_KEYPTR(hh, hash_table, entry->key, key_size, entry);
 
     pthread_rwlock_unlock(&hash_table_lock);
     return CCASK_OK;
