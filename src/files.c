@@ -15,6 +15,8 @@
 #include "ccask/errors.h"
 #include "ccask/log.h"
 
+size_t MAX_ACTIVE_FILE_SIZE = 50; // TODO: set this to a value that makes sense
+
 static const int DATAFILE_OPEN_MODE = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 static const int DATAFILE_OPEN_FLAGS = O_RDONLY;
 static const int HINTFILE_OPEN_FLAGS = O_CREAT | O_RDWR | O_APPEND;
@@ -178,7 +180,8 @@ static inline ccask_file_t* allocate_datafile_node(uint64_t id, bool has_hint) {
     return file;
 }
 
-int ccask_files_init(const char *data_dir) {
+int ccask_files_init(const char *data_dir, size_t active_file_max_size) {
+    MAX_ACTIVE_FILE_SIZE = active_file_max_size;
     DIR* dir = opendir(data_dir);
     if (!dir) {
         log_fatal("Error while opening data-directory\n\t%s", strerror(errno));

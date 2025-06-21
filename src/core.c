@@ -21,7 +21,7 @@ int ccask_init(ccask_options_t opts) {
 
     int res; int retry_counter = 0;
     do {
-        res = ccask_files_init(opts.data_dir);
+        res = ccask_files_init(opts.data_dir, opts.active_file_max_size);
     } while (res == CCASK_RETRY && retry_counter++ <= 5);
 
     if (res != CCASK_OK) {
@@ -31,7 +31,7 @@ int ccask_init(ccask_options_t opts) {
     
     ccask_keydir_init();
     
-    if (ccask_writer_start() != CCASK_OK) {
+    if (ccask_writer_start(opts.writer_ringbuf_capacity) != CCASK_OK) {
         log_fatal("Couldn't initialize writer");
         return CCASK_FAIL;
     }
@@ -111,6 +111,41 @@ int ccask_put(void* key, uint32_t key_size, void* value, uint32_t value_size) {
     return CCASK_OK;
 }
 
+int ccask_put_blocking(void* key, uint32_t key_size, void* value, uint32_t value_size) {
+    if (atomic_load(&is_shutting_down)) {
+        log_error("Cannot put values after shutdown has been initiated");
+        return CCASK_FAIL;
+    }
+
+    uint32_t timestamp = time(NULL);
+    ccask_datafile_record_t record;
+
+    int res = ccask_create_datafile_record(
+        record,
+        timestamp,
+        key, key_size,
+        value, value_size
+    );
+
+    if (res != CCASK_OK) {
+        log_info("Failed to create datafile record during put (blocking)");
+        return CCASK_FAIL;
+    }
+
+    res = ccask_write_record_blocking(record);
+    if (res != CCASK_OK) {
+        log_info("Failed to write datafile record during put (blocking)");
+        return CCASK_FAIL;
+    }
+
+    free_datafile_record(record);
+    return CCASK_OK;
+}
+
 int ccask_delete(void* key, uint32_t key_size) {
     return ccask_put(key, key_size, NULL, 0);
+}
+
+int ccask_delete_blocking(void* key, uint32_t key_size) {
+    return ccask_put_blocking(key, key_size, NULL, 0);
 }

@@ -5,9 +5,9 @@
 #include "ccask/core.h"
 
 int main() {
-    ccask_options_t opts = {
-        .data_dir = "../test_data"
-    };
+    ccask_options_t opts;
+    opts.data_dir = "../test_data";
+    opts.writer_ringbuf_capacity = 10;
     ccask_init(opts);
 
     char *key1 = "key1";
@@ -22,12 +22,12 @@ int main() {
     char *value4 = "value4";
     char *value5 = "value5";
     
-    // ccask_put(key1, 5, value1, 7);
-    // ccask_put(key2, 5, value2, 7);
-    // ccask_put(key3, 5, value3, 7);
-    // ccask_put(key4, 5, value4, 7);
-    // ccask_put(key5, 5, value5, 7);
-    // sleep(1);
+    ccask_put(key1, 5, value1, 7);
+    ccask_put(key2, 5, value2, 7);
+    ccask_put_blocking(key3, 5, value3, 7);
+    ccask_put(key4, 5, value4, 7);
+    ccask_put(key5, 5, value5, 7);
+    sleep(1);
 
     int res;
     char *get_val;

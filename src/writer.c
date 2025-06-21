@@ -13,7 +13,7 @@
 
 static pthread_t writer_thread;
 
-static int write_record(ccask_datafile_record_t record) {
+int ccask_write_record_blocking(ccask_datafile_record_t record) {
     ccask_file_t *file = ccask_files_get_active_file();
 
     pthread_rwlock_wrlock(&file->rwlock);
@@ -30,7 +30,7 @@ static int write_record(ccask_datafile_record_t record) {
     if ((size_t)pos + record_size > MAX_ACTIVE_FILE_SIZE) {
         ccask_files_rotate();
         pthread_rwlock_unlock(&file->rwlock);
-        return write_record(record);
+        return ccask_write_record_blocking(record);
     }
 
     int res = safe_writev(file->fd, record, 3);
@@ -65,13 +65,13 @@ static void* writer_thread_main(void*) {
         int res = ccask_writer_ringbuf_pop(record);
         if (res != CCASK_OK) break;
 
-        write_record(record);
+        ccask_write_record_blocking(record);
         free_datafile_record(record);
     }
 }
 
-int ccask_writer_start(void) {
-    if (ccask_writer_ringbuf_init() != CCASK_OK)
+int ccask_writer_start(size_t capacity) {
+    if (ccask_writer_ringbuf_init(capacity) != CCASK_OK)
         return CCASK_FAIL;
     
     int res; int retry_counter = 0;

@@ -7,7 +7,7 @@
 #include "pthread.h"
 #include "uthash.h"
 
-#define MAX_ACTIVE_FILE_SIZE 50 // bytes
+extern size_t MAX_ACTIVE_FILE_SIZE;
 
 typedef struct ccask_file_t {
     uint64_t file_id;
@@ -23,7 +23,7 @@ typedef struct ccask_file_t {
     UT_hash_handle hh;
 } ccask_file_t;
 
-int ccask_files_init(const char *data_dir);
+int ccask_files_init(const char *data_dir, size_t active_file_max_size);
 void ccask_files_shutdown(void);
 
 ccask_file_t* ccask_files_get_active_file(void);

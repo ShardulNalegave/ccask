@@ -9,10 +9,9 @@
 #include "ccask/errors.h"
 #include "ccask/log.h"
 
-#define WRITER_RINGBUF_CAPACITY 10
-
 typedef struct ccask_writer_ringbuf_t {
     ccask_datafile_record_t *buf;
+    size_t capacity;
     size_t head;
     size_t tail;
 
@@ -33,10 +32,10 @@ size_t ccask_writer_ringbuf_count(void) {
     pthread_mutex_unlock((pthread_mutex_t*)&ringbuf->mutex);
 
     if (head >= tail) return head - tail;
-    return WRITER_RINGBUF_CAPACITY - (tail - head);
+    return ringbuf->capacity - (tail - head);
 }
 
-int ccask_writer_ringbuf_init(void) {
+int ccask_writer_ringbuf_init(size_t capacity) {
     int retry_counter = 0;
     do {
         ringbuf = malloc(sizeof(ccask_writer_ringbuf_t));
@@ -51,10 +50,11 @@ int ccask_writer_ringbuf_init(void) {
     ringbuf->head = 0;
     ringbuf->tail = 0;
     ringbuf->shutdown = false;
+    ringbuf->capacity = capacity;
 
     retry_counter = 0;
     do {
-        ringbuf->buf = calloc(WRITER_RINGBUF_CAPACITY, sizeof(ccask_datafile_record_t));
+        ringbuf->buf = calloc(capacity, sizeof(ccask_datafile_record_t));
     } while (!ringbuf->buf && retry_counter++ <= 5);
 
     if (!ringbuf->buf) {
@@ -94,7 +94,7 @@ int ccask_writer_ringbuf_push(
 ) {
     pthread_mutex_lock(&ringbuf->mutex);
 
-    size_t next = (ringbuf->head + 1) % WRITER_RINGBUF_CAPACITY;
+    size_t next = (ringbuf->head + 1) % ringbuf->capacity;
     if (next == ringbuf->tail) {
         // full
         pthread_mutex_unlock(&ringbuf->mutex);
@@ -136,7 +136,7 @@ int ccask_writer_ringbuf_pop(ccask_datafile_record_t record) {
     }
 
     memcpy(record, ringbuf->buf[ringbuf->tail], sizeof(ccask_datafile_record_t)); // shallow-copy
-    ringbuf->tail = (ringbuf->tail + 1) % WRITER_RINGBUF_CAPACITY;
+    ringbuf->tail = (ringbuf->tail + 1) % ringbuf->capacity;
 
     pthread_mutex_unlock(&ringbuf->mutex);
     return CCASK_OK;
