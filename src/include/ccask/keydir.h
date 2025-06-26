@@ -32,4 +32,12 @@ int ccask_keydir_upsert(
     uint32_t timestamp
 );
 
+typedef struct ccask_keydir_record_iter_t {
+    ccask_keydir_record_t *next;
+} ccask_keydir_record_iter_t;
+
+ccask_keydir_record_iter_t ccask_keydir_record_iter(void);
+ccask_keydir_record_t* ccask_keydir_record_iter_next(ccask_keydir_record_iter_t *iter);
+void ccask_keydir_record_iter_close(ccask_keydir_record_iter_t *iter);
+
 #endif

@@ -200,3 +200,19 @@ int ccask_keydir_upsert(
     pthread_rwlock_unlock(&hash_table_lock);
     return CCASK_OK;
 }
+
+ccask_keydir_record_iter_t ccask_keydir_record_iter(void) {
+    pthread_rwlock_rdlock(&hash_table_lock);
+    ccask_keydir_record_iter_t iter;
+    iter.next = hash_table;
+}
+
+ccask_keydir_record_t* ccask_keydir_record_iter_next(ccask_keydir_record_iter_t *iter) {
+    ccask_keydir_record_t *record = iter->next;
+    if (iter->next) iter->next = iter->next->hh.next;
+}
+
+void ccask_keydir_record_iter_close(ccask_keydir_record_iter_t *iter) {
+    iter->next = NULL;
+    pthread_rwlock_unlock(&hash_table_lock);
+}

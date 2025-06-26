@@ -149,3 +149,29 @@ int ccask_delete(void* key, uint32_t key_size) {
 int ccask_delete_blocking(void* key, uint32_t key_size) {
     return ccask_put_blocking(key, key_size, NULL, 0);
 }
+
+struct ccask_entry_iter_t {
+    ccask_keydir_record_iter_t keydir_iter;
+};
+
+ccask_entry_iter_t* ccask_get_entries_iter(void) {
+    ccask_entry_iter_t* iter = malloc(sizeof(ccask_entry_iter_t));
+    iter->keydir_iter = ccask_keydir_record_iter();
+    return iter;
+}
+
+int ccask_entries_iter_next(ccask_entry_iter_t *iter, ccask_entry_t *entry) {
+    ccask_keydir_record_t *record = ccask_keydir_record_iter_next(&iter->keydir_iter);
+    if (record == NULL) return CCASK_FAIL;
+
+    entry->key = record->key;
+    entry->key_size = record->key_size;
+    entry->timestamp = record->timestamp;
+    entry->value_size = record->value_size;
+    return CCASK_OK;
+}
+
+void ccask_entries_iter_close(ccask_entry_iter_t *iter) {
+    ccask_keydir_record_iter_close(&iter->keydir_iter);
+    free(iter);
+}

@@ -25,6 +25,7 @@ set(CCASK_SOURCES
     "src/writer.c"
     "src/writer_ringbuf.c"
     "src/hint.c"
+    "src/compactor.c"
     "src/records.c"
     "src/iterator.c"
     "src/errors.c"
