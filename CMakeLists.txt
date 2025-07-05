@@ -34,11 +34,6 @@ set(CCASK_SOURCES
 
 add_library(ccask ${CCASK_SOURCES})
 
-set_target_properties(ccask PROPERTIES
-    VERSION ${PROJECT_VERSION}
-    SOVERSION ${PROJECT_VERSION_MAJOR}
-)
-
 target_compile_features(ccask PUBLIC c_std_11)
 
 target_include_directories(ccask

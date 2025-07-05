@@ -205,11 +205,15 @@ ccask_keydir_record_iter_t ccask_keydir_record_iter(void) {
     pthread_rwlock_rdlock(&hash_table_lock);
     ccask_keydir_record_iter_t iter;
     iter.next = hash_table;
+    return iter;
 }
 
 ccask_keydir_record_t* ccask_keydir_record_iter_next(ccask_keydir_record_iter_t *iter) {
+    if (iter->next == NULL) return NULL;
+
     ccask_keydir_record_t *record = iter->next;
-    if (iter->next) iter->next = iter->next->hh.next;
+    iter->next = iter->next->hh.next;
+    return record;
 }
 
 void ccask_keydir_record_iter_close(ccask_keydir_record_iter_t *iter) {
