@@ -105,6 +105,7 @@ int ccask_allocate_hintfile_record(ccask_datafile_record_t record, uint32_t key_
     return CCASK_OK;
 }
 
+#include "stdio.h"
 int ccask_create_hintfile_record(
     ccask_hintfile_record_t record,
     uint32_t timestamp,
@@ -136,6 +137,6 @@ ccask_hintfile_record_header_t ccask_get_hintfile_record_header(ccask_hintfile_r
     header.timestamp = read_be32(header_buf);
     header.key_size = read_be32(header_buf + 4);
     header.value_size = read_be32(header_buf + 8);
-    header.record_pos = read_be32(header_buf + 12);
+    header.record_pos = read_be64(header_buf + 12);
     return header;
 }

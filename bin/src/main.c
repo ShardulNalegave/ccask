@@ -34,7 +34,7 @@ int main() {
     
     ccask_put(key1, 5, value1, 7);
     ccask_put(key2, 5, value2, 7);
-    ccask_put(key3, 5, value3, 7);
+    ccask_put_blocking(key3, 5, value3, 7);
     ccask_put(key4, 5, value4, 7);
     ccask_put(key5, 5, value5, 7);
     sleep(1);
@@ -42,19 +42,31 @@ int main() {
     int res;
     char *get_val;
 
+    res = ccask_get(key1, 5, (void**)&get_val);
+    if (res >= 0) {
+        printf("%d - %s\n", res, get_val);
+        free(get_val);
+    }
+
+    res = ccask_get(key2, 5, (void**)&get_val);
+    if (res >= 0) {
+        printf("%d - %s\n", res, get_val);
+        free(get_val);
+    }
+
     res = ccask_get(key3, 5, (void**)&get_val);
     if (res >= 0) {
         printf("%d - %s\n", res, get_val);
         free(get_val);
     }
 
-    res = ccask_get(key5, 5, (void**)&get_val);
+    res = ccask_get(key4, 5, (void**)&get_val);
     if (res >= 0) {
         printf("%d - %s\n", res, get_val);
         free(get_val);
     }
 
-    res = ccask_get(key1, 5, (void**)&get_val);
+    res = ccask_get(key5, 5, (void**)&get_val);
     if (res >= 0) {
         printf("%d - %s\n", res, get_val);
         free(get_val);

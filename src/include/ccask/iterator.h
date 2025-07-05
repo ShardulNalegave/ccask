@@ -13,7 +13,7 @@ typedef struct ccask_datafile_iter_t {
 } ccask_datafile_iter_t;
 
 int ccask_datafile_iter_open(uint64_t file_id, ccask_datafile_iter_t *iter);
-uint64_t ccask_datafile_iter_next(ccask_datafile_iter_t *iter, ccask_datafile_record_t record);
+int ccask_datafile_iter_next(ccask_datafile_iter_t *iter, ccask_datafile_record_t record, uint64_t *record_pos);
 void ccask_datafile_iter_close(ccask_datafile_iter_t *iter);
 
 typedef struct ccask_hintfile_iter_t {
@@ -24,7 +24,7 @@ typedef struct ccask_hintfile_iter_t {
 } ccask_hintfile_iter_t;
 
 int ccask_hintfile_iter_open(uint64_t file_id, ccask_hintfile_iter_t *iter);
-uint64_t ccask_hintfile_iter_next(ccask_hintfile_iter_t *iter, ccask_hintfile_record_t record);
+int ccask_hintfile_iter_next(ccask_hintfile_iter_t *iter, ccask_hintfile_record_t record, uint64_t *record_pos);
 void ccask_hintfile_iter_close(ccask_hintfile_iter_t *iter);
 
 #endif

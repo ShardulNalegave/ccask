@@ -61,10 +61,10 @@ void* hintfile_generator_thread(void* arg) {
         return NULL;
     }
 
-    int record_pos;
+    uint64_t record_pos;
     ccask_datafile_record_t record;
     ccask_hintfile_record_t hint_record;
-    while ((record_pos = ccask_datafile_iter_next(&iter, record)) >= 0) {
+    while (ccask_datafile_iter_next(&iter, record, &record_pos) == CCASK_OK) {
         ccask_datafile_record_header_t header = ccask_get_datafile_record_header(record);
         void *key = ccask_get_datafile_record_key(record);
         int res = ccask_create_hintfile_record(

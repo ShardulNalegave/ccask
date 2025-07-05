@@ -16,13 +16,13 @@ int ccask_datafile_iter_open(uint64_t file_id, ccask_datafile_iter_t *iter) {
     iter->total_size = lseek(iter->fd, 0, SEEK_END);
 }
 
-uint64_t ccask_datafile_iter_next(ccask_datafile_iter_t *iter, ccask_datafile_record_t record) {
+int ccask_datafile_iter_next(ccask_datafile_iter_t *iter, ccask_datafile_record_t record, uint64_t *record_pos) {
     if (iter->offset >= iter->total_size) {
         ccask_errno = ERR_ITERATOR_END;
         return CCASK_FAIL;
     }
 
-    uint64_t record_pos = iter->offset;
+    *record_pos = iter->offset;
 
     int retry_counter = 0;
     do {
@@ -73,7 +73,7 @@ uint64_t ccask_datafile_iter_next(ccask_datafile_iter_t *iter, ccask_datafile_re
     }
     
     iter->offset += DATAFILE_RECORD_HEADER_SIZE + header.key_size + header.value_size;
-    return record_pos;
+    return CCASK_OK;
 }
 
 void ccask_datafile_iter_close(ccask_datafile_iter_t *iter) {
@@ -90,13 +90,13 @@ int ccask_hintfile_iter_open(uint64_t file_id, ccask_hintfile_iter_t *iter) {
     iter->total_size = lseek(iter->fd, 0, SEEK_END);
 }
 
-uint64_t ccask_hintfile_iter_next(ccask_hintfile_iter_t *iter, ccask_hintfile_record_t record) {
+int ccask_hintfile_iter_next(ccask_hintfile_iter_t *iter, ccask_hintfile_record_t record, uint64_t *record_pos) {
     if (iter->offset >= iter->total_size) {
         ccask_errno = ERR_ITERATOR_END;
         return CCASK_FAIL;
     }
 
-    uint64_t record_pos = iter->offset;
+    *record_pos = iter->offset;
 
     int retry_counter = 0;
     do {
@@ -134,7 +134,7 @@ uint64_t ccask_hintfile_iter_next(ccask_hintfile_iter_t *iter, ccask_hintfile_re
     }
 
     iter->offset += HINTFILE_RECORD_HEADER_SIZE + header.key_size;
-    return record_pos;
+    return CCASK_OK;
 }
 
 void ccask_hintfile_iter_close(ccask_hintfile_iter_t *iter) {

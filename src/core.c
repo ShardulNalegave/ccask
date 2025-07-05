@@ -28,7 +28,7 @@ int ccask_init(ccask_options_t opts) {
         log_fatal("Couldn't initialize ccask-files");
         return CCASK_FAIL;
     }
-    
+
     ccask_keydir_init();
     
     if (ccask_writer_start(opts.writer_ringbuf_capacity) != CCASK_OK) {

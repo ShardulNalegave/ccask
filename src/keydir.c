@@ -27,9 +27,9 @@ static int recover_hintfile(ccask_file_t *file) {
         return CCASK_FAIL;
     }
 
-    int record_pos;
+    uint64_t record_pos;
     ccask_hintfile_record_t record;
-    while ((record_pos = ccask_hintfile_iter_next(&iter, record)) >= 0) {
+    while (ccask_hintfile_iter_next(&iter, record, &record_pos) == CCASK_OK) {
         ccask_hintfile_record_header_t header = ccask_get_hintfile_record_header(record);
         void *key = ccask_get_hintfile_record_key(record);
         
@@ -38,7 +38,7 @@ static int recover_hintfile(ccask_file_t *file) {
             res = ccask_keydir_upsert(
                 key, header.key_size,
                 file->file_id,
-                record_pos,
+                header.record_pos,
                 header.value_size,
                 header.timestamp
             );
@@ -70,9 +70,9 @@ static int recover_datafile(ccask_file_t *file) {
         return CCASK_FAIL;
     }
 
-    int record_pos;
+    uint64_t record_pos;
     ccask_datafile_record_t record;
-    while ((record_pos = ccask_datafile_iter_next(&iter, record)) >= 0) {
+    while (ccask_datafile_iter_next(&iter, record, &record_pos) == CCASK_OK) {
         ccask_datafile_record_header_t header = ccask_get_datafile_record_header(record);
         void *key = ccask_get_datafile_record_key(record);
 
