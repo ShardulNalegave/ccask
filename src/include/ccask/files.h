@@ -7,9 +7,11 @@
 #include "pthread.h"
 #include "uthash.h"
 
+#include "ccask/status.h"
+
 extern size_t MAX_ACTIVE_FILE_SIZE;
 
-typedef struct ccask_file_t {
+typedef struct ccask_file {
     uint64_t file_id;
     int fd;
     time_t last_accessed;
@@ -23,7 +25,7 @@ typedef struct ccask_file_t {
     UT_hash_handle hh;
 } ccask_file_t;
 
-int ccask_files_init(const char *data_dir, size_t active_file_max_size);
+ccask_status_e ccask_files_init(const char *data_dir, size_t active_file_max_size);
 void ccask_files_shutdown(void);
 
 ccask_file_t* ccask_files_get_active_file(void);
@@ -34,8 +36,8 @@ int ccask_files_get_active_datafile_fd(uint64_t file_id);
 int ccask_files_get_datafile_fd(uint64_t file_id);
 int ccask_files_get_hintfile_fd(uint64_t file_id);
 
-int ccask_files_rotate(void);
+ccask_status_e ccask_files_rotate(void);
 
-int ccask_files_delete_hintfile(uint64_t file_id);
+ccask_status_e ccask_files_delete_hintfile(uint64_t file_id);
 
 #endif

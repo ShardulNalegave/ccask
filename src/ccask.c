@@ -48,11 +48,10 @@ int ccask_shutdown(void) {
     ccask_files_shutdown();
 }
 
-int ccask_get(void* key, uint32_t key_size, void** value) {
+ccask_entry_t* ccask_get(void* key, uint32_t key_size) {
     ccask_keydir_record_t *kd_record = ccask_keydir_find(key, key_size);
     if (kd_record == NULL) {
-        *value = NULL;
-        return CCASK_OK;
+        return NULL;
     }
 
     ccask_datafile_record_t record;
@@ -60,8 +59,7 @@ int ccask_get(void* key, uint32_t key_size, void** value) {
     int res = ccask_read_datafile_record(kd_record->file_id, record, kd_record->record_pos);
     if (res != CCASK_OK) {
         log_error("Failed to read datafile record");
-        *value = NULL;
-        return CCASK_FAIL;
+        return NULL;
     }
 
     ccask_datafile_record_header_t header = ccask_get_datafile_record_header(record);
@@ -82,11 +80,15 @@ int ccask_get(void* key, uint32_t key_size, void** value) {
             header.crc, crc
         );
         free_datafile_record(record);
-        return CCASK_FAIL;
+        return NULL;
     }
 
-    *value = malloc(kd_record->value_size);
-    memcpy(*value, read_value, kd_record->value_size);
+    ccask_entry_t *entry = malloc(sizeof(ccask_entry_t));
+
+    entry->timestamp = header.timestamp;
+    entry->key_size = header.key_size;
+    entry->value = malloc(kd_record->value_size);
+    memcpy(entry->value, read_value, kd_record->value_size);
     free_datafile_record(record);
 
     return kd_record->value_size;

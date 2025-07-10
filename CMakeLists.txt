@@ -18,7 +18,7 @@ set(CCASK_PUBLIC_INCLUDES
 )
 
 set(CCASK_SOURCES
-    "src/core.c"
+    "src/ccask.c"
     "src/files.c"
     "src/keydir.c"
     "src/reader.c"

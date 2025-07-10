@@ -5,14 +5,14 @@
 #include "stdint.h"
 #include "sys/uio.h"
 
-typedef enum file_ext_t {
+typedef enum file_ext {
     FILE_UNKNOWN,
     FILE_DATA,
     FILE_HINT
-} file_ext_t;
+} file_ext_e;
 
-file_ext_t parse_filename(const char* name, uint64_t *id);
-char* build_filepath(const char* dir, uint64_t file_id, file_ext_t ext);
+file_ext_e parse_filename(const char* name, uint64_t *id);
+char* build_filepath(const char* dir, uint64_t file_id, file_ext_e ext);
 
 uint32_t calculate_crc32(
     uint32_t timestamp,

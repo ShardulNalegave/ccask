@@ -5,7 +5,9 @@
 #include "stdint.h"
 #include "uthash.h"
 
-typedef struct ccask_keydir_record_t {
+#include "ccask/status.h"
+
+typedef struct ccask_keydir_record {
     void *key;
     uint32_t key_size;
 
@@ -17,13 +19,13 @@ typedef struct ccask_keydir_record_t {
     UT_hash_handle hh;
 } ccask_keydir_record_t;
 
-void ccask_keydir_init(void);
+ccask_status_e ccask_keydir_init(void);
 void ccask_keydir_shutdown(void);
 
 ccask_keydir_record_t* ccask_keydir_find(void *key, uint32_t key_size);
-int ccask_keydir_delete(void *key, uint32_t key_size);
+ccask_status_e ccask_keydir_delete(void *key, uint32_t key_size);
 
-int ccask_keydir_upsert(
+ccask_status_e ccask_keydir_upsert(
     void *key,
     uint32_t key_size,
     uint64_t file_id,
@@ -32,7 +34,7 @@ int ccask_keydir_upsert(
     uint32_t timestamp
 );
 
-typedef struct ccask_keydir_record_iter_t {
+typedef struct ccask_keydir_record_iter {
     ccask_keydir_record_t *next;
 } ccask_keydir_record_iter_t;
 
