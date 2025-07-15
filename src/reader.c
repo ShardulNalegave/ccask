@@ -7,7 +7,6 @@
 #include "inttypes.h"
 #include "ccask/files.h"
 #include "ccask/utils.h"
-#include "ccask/errors.h"
 #include "ccask/log.h"
 
 #define FD_INVALIDATE_DURATION 5 // seconds
@@ -29,13 +28,12 @@ static void* datafile_fd_invalidator_thread(void* arg) {
     }
 }
 
-int ccask_read_datafile_record(uint64_t file_id, ccask_datafile_record_t record, uint64_t record_pos) {
+ccask_status_e ccask_read_datafile_record(uint64_t file_id, ccask_datafile_record_t record, uint64_t record_pos) {
     int ret = CCASK_OK;
 
     ccask_file_t *file = ccask_files_get_file(file_id);
     if (!file) {
-        ccask_errno = ERR_INVALID_FILE_ID;
-        return CCASK_FAIL;
+        return CCASK_ERR_NO_SUCH_DATAFILE;
     }
 
     pthread_rwlock_rdlock(&file->rwlock);
@@ -45,10 +43,8 @@ int ccask_read_datafile_record(uint64_t file_id, ccask_datafile_record_t record,
     if (needs_open) {
         pthread_rwlock_wrlock(&file->rwlock);
         if (file->fd < 0) {
-            int fd, retry_count = 0;
-            do {
-                fd = ccask_files_get_datafile_fd(file->file_id);
-            } while (fd == CCASK_RETRY && retry_count++ <= 5);
+            int fd;
+            CCASK_RETRY(5, fd, ccask_files_get_datafile_fd(file->file_id));
 
             if (fd < 0) {
                 log_error("Could not open Datafile ID=%" PRIu64, file->file_id);
@@ -57,15 +53,13 @@ int ccask_read_datafile_record(uint64_t file_id, ccask_datafile_record_t record,
                 file->fd = fd;
                 if (!file->is_fd_invalidator_running) {
                     pthread_t thr;
-                    int res; int retry_counter = 0;
-                    do {
-                        res = pthread_create(
-                            &thr,
-                            NULL,
-                            datafile_fd_invalidator_thread,
-                            file
-                        );
-                    } while (res != 0 && retry_counter++ <= 5);
+                    int res;
+                    CCASK_RETRY(5, res, pthread_create(
+                        &thr,
+                        NULL,
+                        datafile_fd_invalidator_thread,
+                        file
+                    ));
 
                     if (res != 0) {
                         log_error("Couldn't spawn FD invalidator thread for Datafile ID = %d" PRIu64, file->file_id);
@@ -84,6 +78,7 @@ int ccask_read_datafile_record(uint64_t file_id, ccask_datafile_record_t record,
     ssize_t n = safe_preadv(file->fd, record, 3, record_pos);
     if (n < 0) {
         log_error("Read failed on Datafile ID=%" PRIu64, file->file_id);
+        ccask_errno = CCASK_ERR_READ_FAILED;
         ret = CCASK_FAIL;
     }
 

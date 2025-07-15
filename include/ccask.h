@@ -41,8 +41,15 @@ typedef struct ccask_record {
     uint32_t timestamp;
     uint32_t key_size;
     uint32_t value_size;
-    const void *value;
+    void *value;
 } ccask_record_t;
+
+/**
+ * Frees up the memory allocated by the provided record
+ * 
+ * @param record The record to free
+ */
+void ccask_free_record(ccask_record_t record);
 
 /**
  * Fetch the record corresponding to the provided key
@@ -115,7 +122,7 @@ ccask_keys_iter_t* ccask_list_keys(void);
  * Get the next key from the provided key iterator
  * @return CCASK_OK if next exists, CCASK_ERR_ITER_END if at end
  */
-ccask_status_e ccask_keys_iter_next(ccask_keys_iter_t *iter, void **key, uint32_t key_size);
+ccask_status_e ccask_keys_iter_next(ccask_keys_iter_t *iter, void **key, uint32_t *key_size);
 
 /**
  * Close the keys iterator and release the read-lock.

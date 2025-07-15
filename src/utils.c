@@ -9,9 +9,9 @@
 #include "endian.h"
 #include "errno.h"
 #include "zlib.h"
-#include "ccask/errors.h"
+#include "ccask/status.h"
 
-file_ext_t parse_filename(const char* name, uint64_t *id) {
+file_ext_e parse_filename(const char* name, uint64_t *id) {
     const char *dot = strrchr(name, '.');
 
     size_t flen = dot - name;
@@ -30,7 +30,7 @@ file_ext_t parse_filename(const char* name, uint64_t *id) {
     }
 }
 
-char* build_filepath(const char* dir, uint64_t file_id, file_ext_t ext) {
+char* build_filepath(const char* dir, uint64_t file_id, file_ext_e ext) {
     char *ext_char;
     switch (ext) {
         case FILE_DATA:
@@ -131,6 +131,7 @@ int safe_writev(int fd, const struct iovec *iov, int iovcnt) {
 
         if (nwritten < 0) {
             if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
+            ccask_errno = CCASK_ERR_WRITE_FAILED;
             return CCASK_FAIL;
         }
 
@@ -167,11 +168,12 @@ int safe_readv(int fd, struct iovec *iov, int iovcnt) {
 
         if (nread < 0) {
             if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
+            ccask_errno = CCASK_ERR_READ_FAILED;
             return CCASK_FAIL;
         }
         
         if (nread == 0) {
-            ccask_errno = ERR_UNEXPECTED_EOF;
+            ccask_errno = CCASK_ERR_UNEXPECTED_EOF;
             return CCASK_FAIL;
         }
 
@@ -208,6 +210,7 @@ int safe_pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset) {
 
         if (nwritten < 0) {
             if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
+            ccask_errno = CCASK_ERR_WRITE_FAILED;
             return CCASK_FAIL;
         }
 
@@ -244,11 +247,12 @@ int safe_preadv(int fd, struct iovec *iov, int iovcnt, off_t offset) {
 
         if (nread < 0) {
             if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
+            ccask_errno = CCASK_ERR_READ_FAILED;
             return CCASK_FAIL;
         }
         
         if (nread == 0) {
-            ccask_errno = ERR_UNEXPECTED_EOF;
+            ccask_errno = CCASK_ERR_UNEXPECTED_EOF;
             return CCASK_FAIL;
         }
 
@@ -282,9 +286,10 @@ int safe_pread(int fd, void *buf, ssize_t len, off_t offset) {
         ssize_t n = pread(fd, p, to_read, pos);
         if (n < 0) {
             if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
+            ccask_errno = CCASK_ERR_READ_FAILED;
             return CCASK_FAIL;
         } else if (n == 0) {
-            ccask_errno = ERR_UNEXPECTED_EOF;
+            ccask_errno = CCASK_ERR_UNEXPECTED_EOF;
             return CCASK_FAIL;
         }
 

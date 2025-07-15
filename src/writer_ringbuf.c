@@ -6,10 +6,10 @@
 #include "unistd.h"
 #include "pthread.h"
 #include "ccask/records.h"
-#include "ccask/errors.h"
+#include "ccask/status.h"
 #include "ccask/log.h"
 
-typedef struct ccask_writer_ringbuf_t {
+typedef struct ccask_writer_ringbuf {
     ccask_datafile_record_t *buf;
     size_t capacity;
     size_t head;
@@ -35,15 +35,11 @@ size_t ccask_writer_ringbuf_count(void) {
     return ringbuf->capacity - (tail - head);
 }
 
-int ccask_writer_ringbuf_init(size_t capacity) {
-    int retry_counter = 0;
-    do {
-        ringbuf = malloc(sizeof(ccask_writer_ringbuf_t));
-    } while (!ringbuf && retry_counter++ <= 5);
-
+ccask_status_e ccask_writer_ringbuf_init(size_t capacity) {
+    ringbuf = malloc(sizeof(ccask_writer_ringbuf_t));
     if (!ringbuf) {
         log_error("Couldn't initialize writer ring-buffer");
-        ccask_errno = ERR_NO_MEMORY;
+        ccask_errno = CCASK_ERR_NO_MEMORY;
         return CCASK_FAIL;
     }
 
@@ -52,16 +48,12 @@ int ccask_writer_ringbuf_init(size_t capacity) {
     ringbuf->shutdown = false;
     ringbuf->capacity = capacity;
 
-    retry_counter = 0;
-    do {
-        ringbuf->buf = calloc(capacity, sizeof(ccask_datafile_record_t));
-    } while (!ringbuf->buf && retry_counter++ <= 5);
-
+    ringbuf->buf = calloc(capacity, sizeof(ccask_datafile_record_t));
     if (!ringbuf->buf) {
         free(ringbuf);
         ringbuf = NULL;
         log_error("Couldn't initialize writer ring-buffer");
-        ccask_errno = ERR_NO_MEMORY;
+        ccask_errno = CCASK_ERR_NO_MEMORY;
         return CCASK_FAIL;
     }
 
@@ -71,7 +63,7 @@ int ccask_writer_ringbuf_init(size_t capacity) {
     return CCASK_OK;
 }
 
-void ccask_writer_ringbuf_shutdown(void) {
+void ccask_writer_ringbuf_start_shutdown(void) {
     pthread_mutex_lock(&ringbuf->mutex);
     ringbuf->shutdown = true;
     pthread_cond_broadcast(&ringbuf->not_empty);
@@ -85,7 +77,7 @@ void ccask_writer_ringbuf_destroy(void) {
     free(ringbuf);
 }
 
-int ccask_writer_ringbuf_push(
+ccask_status_e ccask_writer_ringbuf_push(
     uint32_t timestamp,
     void *key,
     uint32_t key_size,
@@ -99,7 +91,7 @@ int ccask_writer_ringbuf_push(
         // full
         pthread_mutex_unlock(&ringbuf->mutex);
         log_warn("Failed to push record onto writer ring-buffer! (Max capacity reached)");
-        ccask_errno = ERR_WRITER_RINGBUF_FULL;
+        ccask_errno = CCASK_ERR_RINGBUFFER_FULL;
         return CCASK_RETRY;
     }
 
@@ -122,7 +114,7 @@ int ccask_writer_ringbuf_push(
     return CCASK_OK;
 }
 
-int ccask_writer_ringbuf_pop(ccask_datafile_record_t record) {
+ccask_status_e ccask_writer_ringbuf_pop(ccask_datafile_record_t record) {
     pthread_mutex_lock(&ringbuf->mutex);
 
     while (ringbuf->tail == ringbuf->head && !ringbuf->shutdown) {

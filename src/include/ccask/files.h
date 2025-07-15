@@ -20,8 +20,8 @@ typedef struct ccask_file {
     bool is_fd_invalidator_running;
     pthread_rwlock_t rwlock;
 
-    struct ccask_file_t* next;
-    struct ccask_file_t* previous;
+    struct ccask_file* next;
+    struct ccask_file* previous;
     UT_hash_handle hh;
 } ccask_file_t;
 

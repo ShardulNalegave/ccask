@@ -5,9 +5,9 @@
 #include "stdbool.h"
 #include "string.h"
 #include "ccask/utils.h"
-#include "ccask/errors.h"
+#include "ccask/status.h"
 
-int ccask_allocate_datafile_record(ccask_datafile_record_t record, uint32_t key_size, uint32_t value_size) {
+ccask_status_e ccask_allocate_datafile_record(ccask_datafile_record_t record, uint32_t key_size, uint32_t value_size) {
     record[0].iov_len = DATAFILE_RECORD_HEADER_SIZE;
     record[1].iov_len = key_size;
     record[2].iov_len = value_size;
@@ -15,11 +15,7 @@ int ccask_allocate_datafile_record(ccask_datafile_record_t record, uint32_t key_
     bool done = true;
     int i = 0;
     for (; i < 3; i++) {
-        int retry_num = 0;
-        do {
-            record[i].iov_base = malloc(record[i].iov_len);
-        } while (!record[i].iov_base && retry_num++ <= 5);
-
+        record[i].iov_base = malloc(record[i].iov_len);
         if (!record[i].iov_base) {
             done = false;
             break;
@@ -30,14 +26,14 @@ int ccask_allocate_datafile_record(ccask_datafile_record_t record, uint32_t key_
         for (; i > 0; i--) {
             free(record[i].iov_base);
         }
-        ccask_errno = ERR_NO_MEMORY;
+        ccask_errno = CCASK_ERR_NO_MEMORY;
         return CCASK_FAIL;
     }
 
     return CCASK_OK;
 }
 
-int ccask_create_datafile_record(
+ccask_status_e ccask_create_datafile_record(
     ccask_datafile_record_t record,
     uint32_t timestamp,
     void *key,
@@ -76,18 +72,14 @@ void free_datafile_record(ccask_datafile_record_t record) {
     if (record[2].iov_base) free(record[2].iov_base);
 }
 
-int ccask_allocate_hintfile_record(ccask_datafile_record_t record, uint32_t key_size) {
+ccask_status_e ccask_allocate_hintfile_record(ccask_datafile_record_t record, uint32_t key_size) {
     record[0].iov_len = HINTFILE_RECORD_HEADER_SIZE;
     record[1].iov_len = key_size;
 
     bool done = true;
     int i = 0;
     for (; i < 2; i++) {
-        int retry_num = 0;
-        do {
-            record[i].iov_base = malloc(record[i].iov_len);
-        } while (!record[i].iov_base && retry_num++ <= 5);
-
+        record[i].iov_base = malloc(record[i].iov_len);
         if (!record[i].iov_base) {
             done = false;
             break;
@@ -98,15 +90,14 @@ int ccask_allocate_hintfile_record(ccask_datafile_record_t record, uint32_t key_
         for (; i > 0; i--) {
             free(record[i].iov_base);
         }
-        ccask_errno = ERR_NO_MEMORY;
+        ccask_errno = CCASK_ERR_NO_MEMORY;
         return CCASK_FAIL;
     }
 
     return CCASK_OK;
 }
 
-#include "stdio.h"
-int ccask_create_hintfile_record(
+ccask_status_e ccask_create_hintfile_record(
     ccask_hintfile_record_t record,
     uint32_t timestamp,
     uint32_t key_size,

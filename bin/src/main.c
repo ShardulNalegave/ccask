@@ -2,23 +2,23 @@
 #include "stdlib.h"
 #include "stdio.h"
 #include "unistd.h"
-#include "ccask/core.h"
+#include "ccask.h"
 
 int main() {
     ccask_options_t opts;
     opts.data_dir = "../test_data";
     opts.writer_ringbuf_capacity = 10;
-    opts.active_file_max_size = 60;
+    opts.datafile_rotate_threshold = 60;
     if (ccask_init(opts) != 0) {
         return -1;
     }
 
-    ccask_entry_iter_t *iter = ccask_get_entries_iter();
-    ccask_entry_t entry;
-    while (ccask_entries_iter_next(iter, &entry) == 0) {
-        printf("KEY: %s\n", entry.key);
+    ccask_keys_iter_t *iter = ccask_list_keys();
+    void *key; uint32_t key_size;
+    while (ccask_keys_iter_next(iter, &key, &key_size) == CCASK_OK) {
+        printf("KEY: %s\n", key);
     }
-    ccask_entries_iter_close(iter);
+    ccask_keys_iter_close(iter);
 
     char *key1 = "key1";
     char *key2 = "key2";
@@ -40,36 +40,36 @@ int main() {
     sleep(1);
 
     int res;
-    char *get_val;
+    ccask_record_t record;
 
-    res = ccask_get(key1, 5, (void**)&get_val);
-    if (res >= 0) {
-        printf("%d - %s\n", res, get_val);
-        free(get_val);
+    res = ccask_get(key1, 5, &record);
+    if (res == CCASK_OK) {
+        printf("%s\n", record.value);
+        ccask_free_record(record);
     }
 
-    res = ccask_get(key2, 5, (void**)&get_val);
-    if (res >= 0) {
-        printf("%d - %s\n", res, get_val);
-        free(get_val);
+    res = ccask_get(key2, 5, &record);
+    if (res == CCASK_OK) {
+        printf("%s\n", record.value);
+        ccask_free_record(record);
     }
 
-    res = ccask_get(key3, 5, (void**)&get_val);
-    if (res >= 0) {
-        printf("%d - %s\n", res, get_val);
-        free(get_val);
+    res = ccask_get(key3, 5, &record);
+    if (res == CCASK_OK) {
+        printf("%s\n", record.value);
+        ccask_free_record(record);
     }
 
-    res = ccask_get(key4, 5, (void**)&get_val);
-    if (res >= 0) {
-        printf("%d - %s\n", res, get_val);
-        free(get_val);
+    res = ccask_get(key4, 5, &record);
+    if (res == CCASK_OK) {
+        printf("%s\n", record.value);
+        ccask_free_record(record);
     }
 
-    res = ccask_get(key5, 5, (void**)&get_val);
-    if (res >= 0) {
-        printf("%d - %s\n", res, get_val);
-        free(get_val);
+    res = ccask_get(key5, 5, &record);
+    if (res == CCASK_OK) {
+        printf("%s\n", record.value);
+        ccask_free_record(record);
     }
 
     ccask_shutdown();

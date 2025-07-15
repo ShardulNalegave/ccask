@@ -7,22 +7,19 @@
 #include "uthash.h"
 #include "ccask/files.h"
 #include "ccask/iterator.h"
-#include "ccask/errors.h"
+#include "ccask/status.h"
 #include "ccask/log.h"
 
 static pthread_rwlock_t hash_table_lock;
 static ccask_keydir_record_t *hash_table = NULL;
 
-static int recover_hintfile(ccask_file_t *file) {
+static ccask_status_e recover_hintfile(ccask_file_t *file) {
     // get iterator for hintfile
     int res;
-    int retry_counter = 0;
     ccask_hintfile_iter_t iter;
-    do {
-        res = ccask_hintfile_iter_open(file->file_id, &iter);
-    } while (res == CCASK_RETRY && retry_counter++ <= 5);
+    CCASK_RETRY(5, res, ccask_hintfile_iter_open(file->file_id, &iter));
 
-    if (res == CCASK_FAIL) {
+    if (res != CCASK_OK) {
         log_error("Hintfile recovery failed (File ID = %" PRIu64 ")", file->file_id);
         return CCASK_FAIL;
     }
@@ -33,16 +30,14 @@ static int recover_hintfile(ccask_file_t *file) {
         ccask_hintfile_record_header_t header = ccask_get_hintfile_record_header(record);
         void *key = ccask_get_hintfile_record_key(record);
         
-        retry_counter = 0;
-        do {
-            res = ccask_keydir_upsert(
-                key, header.key_size,
-                file->file_id,
-                header.record_pos,
-                header.value_size,
-                header.timestamp
-            );
-        } while (res == CCASK_RETRY && retry_counter++ <= 5);
+        int res;
+        CCASK_RETRY(5, res, ccask_keydir_upsert(
+            key, header.key_size,
+            file->file_id,
+            header.record_pos,
+            header.value_size,
+            header.timestamp
+        ));
 
         if (res != CCASK_OK) {
             log_error("Couldn't recover Hintfile ID = %" PRIu64 " record at position = %" PRIu64, file->file_id, record_pos);
@@ -56,16 +51,13 @@ static int recover_hintfile(ccask_file_t *file) {
     return CCASK_OK;
 }
 
-static int recover_datafile(ccask_file_t *file) {
+static ccask_status_e recover_datafile(ccask_file_t *file) {
     // get iterator for datafile
     int res;
-    int retry_counter = 0;
     ccask_datafile_iter_t iter;
-    do {
-        res = ccask_datafile_iter_open(file->file_id, &iter);
-    } while (res == CCASK_RETRY && retry_counter++ <= 5);
+    CCASK_RETRY(5, res, ccask_datafile_iter_open(file->file_id, &iter));
 
-    if (res == CCASK_FAIL) {
+    if (res != CCASK_OK) {
         log_error("Datafile recovery failed (File ID = %" PRIu64 ")", file->file_id);
         return CCASK_FAIL;
     }
@@ -76,16 +68,14 @@ static int recover_datafile(ccask_file_t *file) {
         ccask_datafile_record_header_t header = ccask_get_datafile_record_header(record);
         void *key = ccask_get_datafile_record_key(record);
 
-        retry_counter = 0;
-        do {
-            res = ccask_keydir_upsert(
-                key, header.key_size,
-                file->file_id,
-                record_pos,
-                header.value_size,
-                header.timestamp
-            );
-        } while (res == CCASK_RETRY && retry_counter++ <= 5);
+        int res;
+        CCASK_RETRY(5, res, ccask_keydir_upsert(
+            key, header.key_size,
+            file->file_id,
+            record_pos,
+            header.value_size,
+            header.timestamp
+        ));
 
         if (res != CCASK_OK) {
             log_error("Couldn't recover Datafile ID = %" PRIu64 " record at position = %" PRIu64, file->file_id, record_pos);
@@ -99,19 +89,20 @@ static int recover_datafile(ccask_file_t *file) {
     return CCASK_OK;
 }
 
-void keydir_recover(void) {
+static ccask_status_e keydir_recover(void) {
     ccask_file_t *file = ccask_files_get_oldest_file();
     while (file) {
+        // TODO: Return error if partial recovery is disabled and recovery of a file fails
         if (file->has_hint) recover_hintfile(file);
         else recover_datafile(file);
         file = file->previous;
     }
 }
 
-void ccask_keydir_init(void) {
+ccask_status_e ccask_keydir_init(void) {
     hash_table = NULL;
     pthread_rwlock_init(&hash_table_lock, NULL);
-    keydir_recover();
+    return keydir_recover();
 }
 
 void ccask_keydir_shutdown(void) {
@@ -174,7 +165,7 @@ int ccask_keydir_upsert(
     entry = malloc(sizeof(ccask_keydir_record_t));
     if (!entry) {
         pthread_rwlock_unlock(&hash_table_lock);
-        ccask_errno = ERR_NO_MEMORY;
+        ccask_errno = CCASK_ERR_NO_MEMORY;
         return CCASK_RETRY;
     }
 
@@ -184,7 +175,7 @@ int ccask_keydir_upsert(
     if (!entry->key) {
         pthread_rwlock_unlock(&hash_table_lock);
         free(entry);
-        ccask_errno = ERR_NO_MEMORY;
+        ccask_errno = CCASK_ERR_NO_MEMORY;
         return CCASK_RETRY;
     }
 

@@ -6,8 +6,6 @@
 #include "stdbool.h"
 #include "ccask/records.h"
 
-typedef struct ccask_writer_ringbuf ccask_writer_ringbuf_t;
-
 ccask_status_e ccask_writer_ringbuf_init(size_t capacity);
 void ccask_writer_ringbuf_start_shutdown(void);
 void ccask_writer_ringbuf_destroy(void);

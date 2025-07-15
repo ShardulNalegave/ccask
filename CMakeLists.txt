@@ -28,8 +28,8 @@ set(CCASK_SOURCES
     "src/compactor.c"
     "src/records.c"
     "src/iterator.c"
-    "src/errors.c"
     "src/utils.c"
+    "src/status.c"
     "src/log.cc")
 
 add_library(ccask ${CCASK_SOURCES})

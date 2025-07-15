@@ -12,7 +12,6 @@
 #include "uthash.h"
 #include "ccask/hint.h"
 #include "ccask/utils.h"
-#include "ccask/errors.h"
 #include "ccask/log.h"
 
 size_t MAX_ACTIVE_FILE_SIZE = 50; // TODO: set this to a value that makes sense
@@ -97,6 +96,7 @@ inline int ccask_files_get_active_datafile_fd(uint64_t id) {
         case EPERM:
         case EISDIR:
         case ENAMETOOLONG:
+            ccask_errno = CCASK_ERR_GET_FD_FAILED;
             return CCASK_FAIL;
         default:
             return CCASK_RETRY;
@@ -114,6 +114,7 @@ inline int ccask_files_get_datafile_fd(uint64_t file_id) {
         case EISDIR:
         case ENAMETOOLONG:
         case ENOENT:
+            ccask_errno = CCASK_ERR_GET_FD_FAILED;
             return CCASK_FAIL;
         default:
             return CCASK_RETRY;
@@ -131,17 +132,16 @@ inline int ccask_files_get_hintfile_fd(uint64_t file_id) {
         case EISDIR:
         case ENAMETOOLONG:
         case ENOENT:
+            ccask_errno = CCASK_ERR_GET_FD_FAILED;
             return CCASK_FAIL;
         default:
             return CCASK_RETRY;
     }
 }
 
-static int create_new_active_datafile(uint64_t id, ccask_file_t *file) {
+static ccask_status_e create_new_active_datafile(uint64_t id, ccask_file_t *file) {
     int fd; int retry_counter = 0;
-    do {
-        fd = ccask_files_get_active_datafile_fd(id);
-    } while (fd < 0 && retry_counter++ <= 5);
+    CCASK_RETRY(5, fd, ccask_files_get_active_datafile_fd(id));
 
     if (fd < 0) {
         log_error("Could not create a new Active Datafile ID = %" PRIu64, id);
@@ -166,6 +166,11 @@ static int create_new_active_datafile(uint64_t id, ccask_file_t *file) {
 
 static inline ccask_file_t* allocate_datafile_node(uint64_t id, bool has_hint) {
     ccask_file_t* file = malloc(sizeof(ccask_file_t));
+    if (!file) {
+        ccask_errno = CCASK_ERR_NO_MEMORY;
+        return NULL;
+    }
+
     file->file_id = id;
     file->fd = -1;
     file->has_hint = has_hint;
@@ -204,8 +209,8 @@ int ccask_files_init(const char *data_dir, size_t active_file_max_size) {
     if (!entry_path) {
         log_error("Failed to initialize ccask-files (No memory to allocate fpath for traversing)");
         closedir(dir);
-        ccask_errno = ERR_NO_MEMORY;
-        return CCASK_FAIL;
+        ccask_errno = CCASK_ERR_NO_MEMORY;
+        return CCASK_RETRY;
     }
 
     strcpy(entry_path, data_dir);
@@ -234,7 +239,7 @@ int ccask_files_init(const char *data_dir, size_t active_file_max_size) {
 
         if (S_ISREG(entry_stat.st_mode)) {
             uint64_t file_id;
-            file_ext_t ext = parse_filename(entry->d_name, &file_id);
+            file_ext_e ext = parse_filename(entry->d_name, &file_id);
 
             if (ext == FILE_DATA) {
                 bool has_hint = access(build_filepath(files_state.data_dir, file_id, FILE_HINT), F_OK) == 0;
@@ -250,6 +255,10 @@ int ccask_files_init(const char *data_dir, size_t active_file_max_size) {
 
     if (!files_state.head) {
         ccask_file_t *active_file = malloc(sizeof(ccask_file_t));
+        if (!active_file) {
+            ccask_errno = CCASK_ERR_NO_MEMORY;
+            return CCASK_FAIL;
+        }
         if (create_new_active_datafile(0, active_file) != CCASK_OK) {
             log_error("Failed to initialize ccask-files (Unable to create active datafile)");
             return CCASK_FAIL;
@@ -257,17 +266,18 @@ int ccask_files_init(const char *data_dir, size_t active_file_max_size) {
         add_file(active_file);
     } else if (files_state.head->has_hint) {
         ccask_file_t *active_file = malloc(sizeof(ccask_file_t));
+        if (!active_file) {
+            ccask_errno = CCASK_ERR_NO_MEMORY;
+            return CCASK_FAIL;
+        }
         if (create_new_active_datafile(files_state.head->file_id + 1, active_file) != CCASK_OK) {
             log_error("Failed to initialize ccask-files (Unable to create active datafile)");
             return CCASK_FAIL;
         }
         add_file(active_file);
     } else {
-        int fd; int retry_counter = 0;
-        do {
-            fd = ccask_files_get_active_datafile_fd(files_state.head->file_id);
-        } while (fd < 0 && retry_counter++ <= 5);
-
+        int fd;
+        CCASK_RETRY(5, fd, ccask_files_get_active_datafile_fd(files_state.head->file_id));
         if (fd < 0) {
             log_error("Could not load FD for Active Datafile ID = %" PRIu64, files_state.head->file_id);
             return CCASK_FAIL;
@@ -330,9 +340,15 @@ int ccask_files_delete_hintfile(uint64_t file_id) {
     }
 }
 
-int ccask_files_rotate(void) {
+ccask_status_e ccask_files_rotate(void) {
+    int res;
     ccask_file_t *file = malloc(sizeof(ccask_file_t));
-    int res = create_new_active_datafile(files_state.head->file_id + 1, file);
+    if (!file) {
+        ccask_errno = CCASK_ERR_NO_MEMORY;
+        return CCASK_FAIL;
+    }
+
+    res = create_new_active_datafile(files_state.head->file_id + 1, file);
     if (res != CCASK_OK) {
         log_error("Failed to perform rotation of Active Datafile");
         return CCASK_FAIL;
@@ -343,6 +359,7 @@ int ccask_files_rotate(void) {
     files_state.head->is_active = false;
 
     add_file(file);
-    ccask_hintfile_generate(files_state.head->next);
+    CCASK_RETRY(5, res, ccask_hintfile_generate(files_state.head->next));
+    
     return CCASK_OK;
 }

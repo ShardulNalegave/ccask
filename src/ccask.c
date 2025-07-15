@@ -1,5 +1,5 @@
 
-#include "ccask/core.h"
+#include "ccask.h"
 
 #include "time.h"
 #include "stdatomic.h"
@@ -10,28 +10,29 @@
 #include "ccask/writer_ringbuf.h"
 #include "ccask/reader.h"
 #include "ccask/hint.h"
-#include "ccask/errors.h"
 #include "ccask/log.h"
 #include "ccask/utils.h"
 
-static _Atomic bool is_shutting_down = false;
+volatile static _Atomic bool is_shutting_down = false;
 
-int ccask_init(ccask_options_t opts) {
+ccask_status_e ccask_init(ccask_options_t opts) {
     atomic_store(&is_shutting_down, false);
+    int res;
 
-    int res; int retry_counter = 0;
-    do {
-        res = ccask_files_init(opts.data_dir, opts.active_file_max_size);
-    } while (res == CCASK_RETRY && retry_counter++ <= 5);
-
+    CCASK_RETRY(5, res, ccask_files_init(opts.data_dir, opts.datafile_rotate_threshold));
     if (res != CCASK_OK) {
         log_fatal("Couldn't initialize ccask-files");
         return CCASK_FAIL;
     }
 
-    ccask_keydir_init();
+    CCASK_RETRY(5, res, ccask_keydir_init());
+    if (res != CCASK_OK) {
+        log_fatal("Couldn't initialize keydir");
+        return CCASK_FAIL;
+    }
     
-    if (ccask_writer_start(opts.writer_ringbuf_capacity) != CCASK_OK) {
+    CCASK_RETRY(5, res, ccask_writer_start(opts.writer_ringbuf_capacity));
+    if (res != CCASK_OK) {
         log_fatal("Couldn't initialize writer");
         return CCASK_FAIL;
     }
@@ -40,7 +41,7 @@ int ccask_init(ccask_options_t opts) {
     return CCASK_OK;
 }
 
-int ccask_shutdown(void) {
+void ccask_shutdown(void) {
     atomic_store(&is_shutting_down, true);
     ccask_hintfile_generator_shutdown();
     ccask_writer_stop();
@@ -48,23 +49,29 @@ int ccask_shutdown(void) {
     ccask_files_shutdown();
 }
 
-ccask_entry_t* ccask_get(void* key, uint32_t key_size) {
+void ccask_free_record(ccask_record_t record) {
+    free(record.value);
+}
+
+ccask_status_e ccask_get(void *key, uint32_t key_size, ccask_record_t *record) {
     ccask_keydir_record_t *kd_record = ccask_keydir_find(key, key_size);
     if (kd_record == NULL) {
-        return NULL;
+        record->value = NULL;
+        return CCASK_OK;
     }
 
-    ccask_datafile_record_t record;
-    ccask_allocate_datafile_record(record, kd_record->key_size, kd_record->value_size);
-    int res = ccask_read_datafile_record(kd_record->file_id, record, kd_record->record_pos);
+    ccask_datafile_record_t df_record;
+    if (ccask_allocate_datafile_record(df_record, kd_record->key_size, kd_record->value_size) != CCASK_OK)
+        return CCASK_FAIL;
+    int res = ccask_read_datafile_record(kd_record->file_id, df_record, kd_record->record_pos);
     if (res != CCASK_OK) {
         log_error("Failed to read datafile record");
-        return NULL;
+        return CCASK_FAIL;
     }
 
-    ccask_datafile_record_header_t header = ccask_get_datafile_record_header(record);
-    void *read_key = ccask_get_datafile_record_key(record);
-    void *read_value = ccask_get_datafile_record_value(record);
+    ccask_datafile_record_header_t header = ccask_get_datafile_record_header(df_record);
+    void *read_key = ccask_get_datafile_record_key(df_record);
+    void *read_value = ccask_get_datafile_record_value(df_record);
 
     uint32_t crc = calculate_crc32(
         header.timestamp,
@@ -79,32 +86,34 @@ ccask_entry_t* ccask_get(void* key, uint32_t key_size) {
             "Stored CRC for key doesn't match its actual CRC, returning NULL (%" PRIu32" != %" PRIu32 ")",
             header.crc, crc
         );
-        free_datafile_record(record);
-        return NULL;
+        free_datafile_record(df_record);
+        ccask_errno = CCASK_ERR_CRC_INVALID;
+        return CCASK_FAIL;
     }
 
-    ccask_entry_t *entry = malloc(sizeof(ccask_entry_t));
+    record->value = malloc(kd_record->value_size);
+    if (!record->value) {
+        ccask_errno = CCASK_ERR_NO_MEMORY;
+        return CCASK_FAIL;
+    }
+    memcpy(record->value, read_value, kd_record->value_size);
 
-    entry->timestamp = header.timestamp;
-    entry->key_size = header.key_size;
-    entry->value = malloc(kd_record->value_size);
-    memcpy(entry->value, read_value, kd_record->value_size);
-    free_datafile_record(record);
+    record->timestamp = header.timestamp;
+    record->key_size = header.key_size;
+    record->value_size = kd_record->value_size;
 
-    return kd_record->value_size;
+    free_datafile_record(df_record);
+    return CCASK_OK;
 }
 
-int ccask_put(void* key, uint32_t key_size, void* value, uint32_t value_size) {
+ccask_status_e ccask_put(void* key, uint32_t key_size, void* value, uint32_t value_size) {
     if (atomic_load(&is_shutting_down)) {
         log_error("Cannot put values after shutdown has been initiated");
         return CCASK_FAIL;
     }
 
-    int res; int retry_counter = 0;
-    do {
-        res = ccask_writer_ringbuf_push(time(NULL), key, key_size, value, value_size);
-    } while (res == CCASK_RETRY && retry_counter++ <= 5);
-
+    int res;
+    CCASK_RETRY(5, res, ccask_writer_ringbuf_push(time(NULL), key, key_size, value, value_size));
     if (res != CCASK_OK) {
         log_error("Couldn't put record into writer ringbuf");
         return CCASK_FAIL;
@@ -113,7 +122,7 @@ int ccask_put(void* key, uint32_t key_size, void* value, uint32_t value_size) {
     return CCASK_OK;
 }
 
-int ccask_put_blocking(void* key, uint32_t key_size, void* value, uint32_t value_size) {
+ccask_status_e ccask_put_blocking(void *key, uint32_t key_size, void *value, uint32_t value_size) {
     if (atomic_load(&is_shutting_down)) {
         log_error("Cannot put values after shutdown has been initiated");
         return CCASK_FAIL;
@@ -144,36 +153,42 @@ int ccask_put_blocking(void* key, uint32_t key_size, void* value, uint32_t value
     return CCASK_OK;
 }
 
-int ccask_delete(void* key, uint32_t key_size) {
+ccask_status_e ccask_delete(void* key, uint32_t key_size) {
     return ccask_put(key, key_size, NULL, 0);
 }
 
-int ccask_delete_blocking(void* key, uint32_t key_size) {
+ccask_status_e ccask_delete_blocking(void* key, uint32_t key_size) {
     return ccask_put_blocking(key, key_size, NULL, 0);
 }
 
-struct ccask_entry_iter_t {
+struct ccask_keys_iter {
     ccask_keydir_record_iter_t keydir_iter;
 };
 
-ccask_entry_iter_t* ccask_get_entries_iter(void) {
-    ccask_entry_iter_t* iter = malloc(sizeof(ccask_entry_iter_t));
+ccask_keys_iter_t* ccask_list_keys(void) {
+    ccask_keys_iter_t* iter = malloc(sizeof(ccask_keys_iter_t));
+    if (!iter) {
+        ccask_errno = CCASK_ERR_NO_MEMORY;
+        return NULL;
+    }
+
     iter->keydir_iter = ccask_keydir_record_iter();
     return iter;
 }
 
-int ccask_entries_iter_next(ccask_entry_iter_t *iter, ccask_entry_t *entry) {
+ccask_status_e ccask_keys_iter_next(ccask_keys_iter_t *iter, void **key, uint32_t *key_size) {
     ccask_keydir_record_t *record = ccask_keydir_record_iter_next(&iter->keydir_iter);
-    if (record == NULL) return CCASK_FAIL;
+    if (record == NULL) {
+        ccask_errno = CCASK_ERR_ITER_END;
+        return CCASK_FAIL;
+    }
 
-    entry->key = record->key;
-    entry->key_size = record->key_size;
-    entry->timestamp = record->timestamp;
-    entry->value_size = record->value_size;
+    *key = record->key;
+    *key_size = record->key_size;
     return CCASK_OK;
 }
 
-void ccask_entries_iter_close(ccask_entry_iter_t *iter) {
+void ccask_keys_iter_close(ccask_keys_iter_t *iter) {
     ccask_keydir_record_iter_close(&iter->keydir_iter);
     free(iter);
 }
