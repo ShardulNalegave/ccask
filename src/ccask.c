@@ -19,19 +19,19 @@ ccask_status_e ccask_init(ccask_options_t opts) {
     atomic_store(&is_shutting_down, false);
     int res;
 
-    CCASK_RETRY(5, res, ccask_files_init(opts.data_dir, opts.datafile_rotate_threshold));
+    CCASK_ATTEMPT(5, res, ccask_files_init(opts.data_dir, opts.datafile_rotate_threshold));
     if (res != CCASK_OK) {
         log_fatal("Couldn't initialize ccask-files");
         return CCASK_FAIL;
     }
 
-    CCASK_RETRY(5, res, ccask_keydir_init());
+    CCASK_ATTEMPT(5, res, ccask_keydir_init());
     if (res != CCASK_OK) {
         log_fatal("Couldn't initialize keydir");
         return CCASK_FAIL;
     }
     
-    CCASK_RETRY(5, res, ccask_writer_start(opts.writer_ringbuf_capacity));
+    CCASK_ATTEMPT(5, res, ccask_writer_start(opts.writer_ringbuf_capacity));
     if (res != CCASK_OK) {
         log_fatal("Couldn't initialize writer");
         return CCASK_FAIL;
@@ -63,7 +63,9 @@ ccask_status_e ccask_get(void *key, uint32_t key_size, ccask_record_t *record) {
     ccask_datafile_record_t df_record;
     if (ccask_allocate_datafile_record(df_record, kd_record->key_size, kd_record->value_size) != CCASK_OK)
         return CCASK_FAIL;
-    int res = ccask_read_datafile_record(kd_record->file_id, df_record, kd_record->record_pos);
+    
+    int res;
+    CCASK_ATTEMPT(5, res, ccask_read_datafile_record(kd_record->file_id, df_record, kd_record->record_pos));
     if (res != CCASK_OK) {
         log_error("Failed to read datafile record");
         return CCASK_FAIL;
@@ -113,7 +115,7 @@ ccask_status_e ccask_put(void* key, uint32_t key_size, void* value, uint32_t val
     }
 
     int res;
-    CCASK_RETRY(5, res, ccask_writer_ringbuf_push(time(NULL), key, key_size, value, value_size));
+    CCASK_ATTEMPT(5, res, ccask_writer_ringbuf_push(time(NULL), key, key_size, value, value_size));
     if (res != CCASK_OK) {
         log_error("Couldn't put record into writer ringbuf");
         return CCASK_FAIL;

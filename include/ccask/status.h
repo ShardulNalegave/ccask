@@ -30,7 +30,7 @@ typedef enum ccask_status {
     CCASK_RETRY = -2,
 } ccask_status_e;
 
-#define CCASK_RETRY(max_attempts, out_var, expr)                \
+#define CCASK_ATTEMPT(max_attempts, out_var, expr)              \
     do {                                                        \
         int _ccask_retry_cnt = 0;                               \
         for (; _ccask_retry_cnt < (max_attempts);               \

@@ -39,7 +39,7 @@ void* hintfile_generator_thread(void* arg) {
 
     // get file-descriptor for new hintfile
     int hintfile_fd;
-    CCASK_RETRY(5, hintfile_fd, ccask_files_get_hintfile_fd(file_id));
+    CCASK_ATTEMPT(5, hintfile_fd, ccask_files_get_hintfile_fd(file_id));
     if (hintfile_fd < 0) {
         log_error("Hintfile generation failed (File ID = %" PRIu64 ")", file_id);
         return NULL;
@@ -48,7 +48,7 @@ void* hintfile_generator_thread(void* arg) {
     // get iterator for datafile
     int res;
     ccask_datafile_iter_t iter;
-    CCASK_RETRY(5, res, ccask_datafile_iter_open(file_id, &iter));
+    CCASK_ATTEMPT(5, res, ccask_datafile_iter_open(file_id, &iter));
     if (res != CCASK_OK) {
         log_error("Hintfile generation failed (File ID = %" PRIu64 ")", file_id);
         return NULL;
@@ -81,13 +81,12 @@ void* hintfile_generator_thread(void* arg) {
 
 generation_failed:
         log_error("Hintfile generation failed (File ID = %" PRIu64 ")", file_id);
-        close(hintfile_fd);
         free_datafile_record(record);
         free_hintfile_record(hint_record);
         ccask_datafile_iter_close(&iter);
 
         close(hintfile_fd);
-        CCASK_RETRY(5, res, ccask_files_delete_hintfile(file_id));
+        CCASK_ATTEMPT(5, res, ccask_files_delete(file_id, FILE_HINT));
         if (res != CCASK_OK) log_error("Couldn't delete partially written hintfile ID = %" PRIu64, file_id);
         
         return NULL;
@@ -106,7 +105,7 @@ ccask_status_e ccask_hintfile_generate(ccask_file_t* file) {
     }
 
     int res;
-    CCASK_RETRY(5, res, pthread_create(&handle->thread, NULL, hintfile_generator_thread, file));
+    CCASK_ATTEMPT(5, res, pthread_create(&handle->thread, NULL, hintfile_generator_thread, file));
 
     if (res != 0) {
         log_error("Could not start Hintfile generation thread for ID = %" PRIu64, file->file_id);

@@ -8,7 +8,7 @@
 
 ccask_status_e ccask_datafile_iter_open(uint64_t file_id, ccask_datafile_iter_t *iter) {
     int fd;
-    CCASK_RETRY(5, fd, ccask_files_get_datafile_fd(file_id));
+    CCASK_ATTEMPT(5, fd, ccask_files_get_datafile_fd(file_id));
     if (fd < 0) return CCASK_FAIL;
 
     iter->file_id = file_id;
@@ -72,7 +72,7 @@ void ccask_datafile_iter_close(ccask_datafile_iter_t *iter) {
 
 ccask_status_e ccask_hintfile_iter_open(uint64_t file_id, ccask_hintfile_iter_t *iter) {
     int fd;
-    CCASK_RETRY(5, fd, ccask_files_get_hintfile_fd(file_id));
+    CCASK_ATTEMPT(5, fd, ccask_files_get_hintfile_fd(file_id));
     if (fd < 0) return CCASK_FAIL;
 
     iter->file_id = file_id;

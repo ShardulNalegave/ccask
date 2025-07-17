@@ -21,7 +21,9 @@ file_ext_e parse_filename(const char* name, uint64_t *id) {
 
     *id = atoi(fname);
 
-    if (strcmp(dot, ".data") == 0) {
+    if (strcmp(dot, ".data.tmp") == 0) {
+        return FILE_TEMP_DATA;
+    } else if (strcmp(dot, ".data") == 0) {
         return FILE_DATA;
     } else if (strcmp(dot, ".hint") == 0) {
         return FILE_HINT;
@@ -38,6 +40,9 @@ char* build_filepath(const char* dir, uint64_t file_id, file_ext_e ext) {
             break;
         case FILE_HINT:
             ext_char = ".hint";
+            break;
+        case FILE_TEMP_DATA:
+            ext_char = ".data.tmp";
             break;
         default:
             return NULL;

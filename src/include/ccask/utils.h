@@ -8,7 +8,8 @@
 typedef enum file_ext {
     FILE_UNKNOWN,
     FILE_DATA,
-    FILE_HINT
+    FILE_HINT,
+    FILE_TEMP_DATA
 } file_ext_e;
 
 file_ext_e parse_filename(const char* name, uint64_t *id);

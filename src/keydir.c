@@ -17,7 +17,7 @@ static ccask_status_e recover_hintfile(ccask_file_t *file) {
     // get iterator for hintfile
     int res;
     ccask_hintfile_iter_t iter;
-    CCASK_RETRY(5, res, ccask_hintfile_iter_open(file->file_id, &iter));
+    CCASK_ATTEMPT(5, res, ccask_hintfile_iter_open(file->file_id, &iter));
 
     if (res != CCASK_OK) {
         log_error("Hintfile recovery failed (File ID = %" PRIu64 ")", file->file_id);
@@ -31,7 +31,7 @@ static ccask_status_e recover_hintfile(ccask_file_t *file) {
         void *key = ccask_get_hintfile_record_key(record);
         
         int res;
-        CCASK_RETRY(5, res, ccask_keydir_upsert(
+        CCASK_ATTEMPT(5, res, ccask_keydir_upsert(
             key, header.key_size,
             file->file_id,
             header.record_pos,
@@ -55,7 +55,7 @@ static ccask_status_e recover_datafile(ccask_file_t *file) {
     // get iterator for datafile
     int res;
     ccask_datafile_iter_t iter;
-    CCASK_RETRY(5, res, ccask_datafile_iter_open(file->file_id, &iter));
+    CCASK_ATTEMPT(5, res, ccask_datafile_iter_open(file->file_id, &iter));
 
     if (res != CCASK_OK) {
         log_error("Datafile recovery failed (File ID = %" PRIu64 ")", file->file_id);
@@ -69,7 +69,7 @@ static ccask_status_e recover_datafile(ccask_file_t *file) {
         void *key = ccask_get_datafile_record_key(record);
 
         int res;
-        CCASK_RETRY(5, res, ccask_keydir_upsert(
+        CCASK_ATTEMPT(5, res, ccask_keydir_upsert(
             key, header.key_size,
             file->file_id,
             record_pos,

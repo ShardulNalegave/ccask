@@ -7,6 +7,7 @@
 #include "pthread.h"
 #include "uthash.h"
 
+#include "ccask/utils.h"
 #include "ccask/status.h"
 
 extern size_t MAX_ACTIVE_FILE_SIZE;
@@ -35,9 +36,11 @@ ccask_file_t* ccask_files_get_file(uint64_t file_id);
 int ccask_files_get_active_datafile_fd(uint64_t file_id);
 int ccask_files_get_datafile_fd(uint64_t file_id);
 int ccask_files_get_hintfile_fd(uint64_t file_id);
+int ccask_files_get_temp_datafile_fd(uint64_t file_id);
 
 ccask_status_e ccask_files_rotate(void);
 
-ccask_status_e ccask_files_delete_hintfile(uint64_t file_id);
+ccask_status_e ccask_files_delete(uint64_t file_id, file_ext_e ext);
+ccask_status_e ccask_files_rename(uint64_t file_id, file_ext_e from, file_ext_e to);
 
 #endif

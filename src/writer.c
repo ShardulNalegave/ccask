@@ -24,7 +24,7 @@ ccask_status_e ccask_write_record_blocking(ccask_datafile_record_t record) {
         return CCASK_FAIL;
     }
 
-    size_t record_size = ccask_get_hintfile_record_total_size(record);
+    size_t record_size = ccask_get_datafile_record_total_size(record);
     if ((size_t)pos + record_size > MAX_ACTIVE_FILE_SIZE) {
         ccask_files_rotate();
         pthread_rwlock_unlock(&file->rwlock);
@@ -43,7 +43,7 @@ ccask_status_e ccask_write_record_blocking(ccask_datafile_record_t record) {
     ccask_datafile_record_header_t header = ccask_get_datafile_record_header(record);
     void *key = ccask_get_datafile_record_key(record);
     
-    CCASK_RETRY(5, res, ccask_keydir_upsert(key, header.key_size, file->file_id, pos, header.value_size, header.timestamp));
+    CCASK_ATTEMPT(5, res, ccask_keydir_upsert(key, header.key_size, file->file_id, pos, header.value_size, header.timestamp));
     if (res != CCASK_OK) {
         log_error("Record written to Active datafile but couldn't update Key-Directory");
         return CCASK_FAIL;
@@ -68,7 +68,7 @@ ccask_status_e ccask_writer_start(size_t capacity) {
         return CCASK_FAIL;
     
     int res;
-    CCASK_RETRY(5, res, pthread_create(&writer_thread, NULL, writer_thread_main, NULL));
+    CCASK_ATTEMPT(5, res, pthread_create(&writer_thread, NULL, writer_thread_main, NULL));
     if (res != 0) {
         ccask_writer_ringbuf_destroy();
         ccask_errno = CCASK_ERR_COULDNT_START_THREAD;

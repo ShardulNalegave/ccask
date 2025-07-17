@@ -1,6 +1,0 @@
-[submodule "vendor/log/log"]
-	path = vendor/log/log
-	url = https://github.com/rxi/log.c.git
-[submodule "vendor/spdlog"]
-	path = vendor/spdlog
-	url = git@github.com:gabime/spdlog.git

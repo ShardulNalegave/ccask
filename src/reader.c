@@ -44,7 +44,7 @@ ccask_status_e ccask_read_datafile_record(uint64_t file_id, ccask_datafile_recor
         pthread_rwlock_wrlock(&file->rwlock);
         if (file->fd < 0) {
             int fd;
-            CCASK_RETRY(5, fd, ccask_files_get_datafile_fd(file->file_id));
+            CCASK_ATTEMPT(5, fd, ccask_files_get_datafile_fd(file->file_id));
 
             if (fd < 0) {
                 log_error("Could not open Datafile ID=%" PRIu64, file->file_id);
@@ -54,7 +54,7 @@ ccask_status_e ccask_read_datafile_record(uint64_t file_id, ccask_datafile_recor
                 if (!file->is_fd_invalidator_running) {
                     pthread_t thr;
                     int res;
-                    CCASK_RETRY(5, res, pthread_create(
+                    CCASK_ATTEMPT(5, res, pthread_create(
                         &thr,
                         NULL,
                         datafile_fd_invalidator_thread,

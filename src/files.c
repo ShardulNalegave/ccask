@@ -20,6 +20,7 @@ static const int DATAFILE_OPEN_MODE = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 static const int DATAFILE_OPEN_FLAGS = O_RDONLY;
 static const int HINTFILE_OPEN_FLAGS = O_CREAT | O_RDWR | O_APPEND;
 static const int ACTIVE_DATAFILE_OPEN_FLAGS = O_CREAT | O_RDWR | O_APPEND;
+static const int TEMP_DATAFILE_OPEN_FLAGS = O_CREAT | O_RDWR | O_APPEND;
 
 static struct files_state {
     char* data_dir;
@@ -139,9 +140,27 @@ inline int ccask_files_get_hintfile_fd(uint64_t file_id) {
     }
 }
 
+inline int ccask_files_get_temp_datafile_fd(uint64_t file_id) {
+    char* fpath = build_filepath(files_state.data_dir, file_id, FILE_TEMP_DATA);
+    int fd = open(fpath, TEMP_DATAFILE_OPEN_FLAGS, DATAFILE_OPEN_MODE);
+    if (fd >= 0) return fd;
+
+    switch (errno) {
+        case EACCES:
+        case EPERM:
+        case EISDIR:
+        case ENAMETOOLONG:
+        case ENOENT:
+            ccask_errno = CCASK_ERR_GET_FD_FAILED;
+            return CCASK_FAIL;
+        default:
+            return CCASK_RETRY;
+    }
+}
+
 static ccask_status_e create_new_active_datafile(uint64_t id, ccask_file_t *file) {
     int fd; int retry_counter = 0;
-    CCASK_RETRY(5, fd, ccask_files_get_active_datafile_fd(id));
+    CCASK_ATTEMPT(5, fd, ccask_files_get_active_datafile_fd(id));
 
     if (fd < 0) {
         log_error("Could not create a new Active Datafile ID = %" PRIu64, id);
@@ -277,7 +296,7 @@ int ccask_files_init(const char *data_dir, size_t active_file_max_size) {
         add_file(active_file);
     } else {
         int fd;
-        CCASK_RETRY(5, fd, ccask_files_get_active_datafile_fd(files_state.head->file_id));
+        CCASK_ATTEMPT(5, fd, ccask_files_get_active_datafile_fd(files_state.head->file_id));
         if (fd < 0) {
             log_error("Could not load FD for Active Datafile ID = %" PRIu64, files_state.head->file_id);
             return CCASK_FAIL;
@@ -322,8 +341,8 @@ void ccask_files_shutdown(void) {
     }
 }
 
-int ccask_files_delete_hintfile(uint64_t file_id) {
-    char* fpath = build_filepath(files_state.data_dir, file_id, FILE_HINT);
+int ccask_files_delete(uint64_t file_id, file_ext_e ext) {
+    char* fpath = build_filepath(files_state.data_dir, file_id, ext);
     if (unlink(fpath) == 0) return CCASK_OK;
 
     switch (errno) {
@@ -359,7 +378,7 @@ ccask_status_e ccask_files_rotate(void) {
     files_state.head->is_active = false;
 
     add_file(file);
-    CCASK_RETRY(5, res, ccask_hintfile_generate(files_state.head->next));
+    CCASK_ATTEMPT(5, res, ccask_hintfile_generate(files_state.head->next));
     
     return CCASK_OK;
 }
