@@ -1,5 +1,22 @@
+/**
+ * Copyright (C) 2025  Shardul Nalegave
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the Lesser GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * Lesser GNU General Public License for more details.
+ * 
+ * You should have received a copy of the Lesser GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * 
+ */
 
-#include "ccask.h"
+#include "ccask/core.h"
 
 #include "time.h"
 #include "stdatomic.h"
@@ -13,7 +30,7 @@
 #include "ccask/log.h"
 #include "ccask/utils.h"
 
-volatile static _Atomic bool is_shutting_down = false;
+static volatile _Atomic bool is_shutting_down = false;
 
 ccask_status_e ccask_init(ccask_options_t opts) {
     atomic_store(&is_shutting_down, false);

@@ -3,7 +3,7 @@
 #include "stdio.h"
 #include "unistd.h"
 
-#include "ccask.h"
+#include "ccask/core.h"
 #include "ccask/compactor.h"
 
 int main() {

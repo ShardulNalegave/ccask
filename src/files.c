@@ -1,6 +1,24 @@
+/**
+ * Copyright (C) 2025  Shardul Nalegave
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the Lesser GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * Lesser GNU General Public License for more details.
+ * 
+ * You should have received a copy of the Lesser GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * 
+ */
 
 #include "ccask/files.h"
 
+#include "stdio.h"
 #include "time.h"
 #include "unistd.h"
 #include "fcntl.h"
@@ -344,6 +362,26 @@ void ccask_files_shutdown(void) {
 int ccask_files_delete(uint64_t file_id, file_ext_e ext) {
     char* fpath = build_filepath(files_state.data_dir, file_id, ext);
     if (unlink(fpath) == 0) return CCASK_OK;
+
+    switch (errno) {
+        case EACCES:
+        case EISDIR:
+        case EFAULT:
+        case ENAMETOOLONG:
+        case ENOENT:
+        case EPERM:
+        case EROFS:
+            return CCASK_FAIL;
+        default:
+            return CCASK_RETRY;
+    }
+}
+
+ccask_status_e ccask_files_change_ext(uint64_t file_id, file_ext_e from, file_ext_e to) {
+    char* from_fpath = build_filepath(files_state.data_dir, file_id, from);
+    char* to_fpath = build_filepath(files_state.data_dir, file_id, to);
+
+    if (rename(from_fpath, to_fpath) == 0) return CCASK_OK;
 
     switch (errno) {
         case EACCES:
