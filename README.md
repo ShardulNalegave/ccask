@@ -160,7 +160,7 @@ gcc -std=c11 \
 
 ```c
 
-#include "ccask.h"
+#include "ccask/core.h"
 
 int main() {
     ccask_options_t opts;

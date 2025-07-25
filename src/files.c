@@ -177,7 +177,7 @@ inline int ccask_files_get_temp_datafile_fd(uint64_t file_id) {
 }
 
 static ccask_status_e create_new_active_datafile(uint64_t id, ccask_file_t *file) {
-    int fd; int retry_counter = 0;
+    int fd;
     CCASK_ATTEMPT(5, fd, ccask_files_get_active_datafile_fd(id));
 
     if (fd < 0) {
@@ -222,7 +222,7 @@ static inline ccask_file_t* allocate_datafile_node(uint64_t id, bool has_hint) {
     return file;
 }
 
-int ccask_files_init(const char *data_dir, size_t active_file_max_size) {
+ccask_status_e ccask_files_init(const char *data_dir, size_t active_file_max_size) {
     MAX_ACTIVE_FILE_SIZE = active_file_max_size;
     DIR* dir = opendir(data_dir);
     if (!dir) {
@@ -359,7 +359,7 @@ void ccask_files_shutdown(void) {
     }
 }
 
-int ccask_files_delete(uint64_t file_id, file_ext_e ext) {
+ccask_status_e ccask_files_delete(uint64_t file_id, file_ext_e ext) {
     char* fpath = build_filepath(files_state.data_dir, file_id, ext);
     if (unlink(fpath) == 0) return CCASK_OK;
 

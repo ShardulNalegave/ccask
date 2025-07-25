@@ -50,7 +50,8 @@ ccask_status_e ccask_read_datafile_record(uint64_t file_id, ccask_datafile_recor
 
     ccask_file_t *file = ccask_files_get_file(file_id);
     if (!file) {
-        return CCASK_ERR_NO_SUCH_DATAFILE;
+        ccask_errno = CCASK_ERR_NO_SUCH_DATAFILE;
+        return CCASK_FAIL;
     }
 
     pthread_rwlock_rdlock(&file->rwlock);

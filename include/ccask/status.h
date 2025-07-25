@@ -16,8 +16,8 @@
  * 
  */
 
-#ifndef CCASK_ERRORS_H
-#define CCASK_ERRORS_H
+#ifndef CCASK_STATUS_H
+#define CCASK_STATUS_H
 
 #ifdef __cplusplus
 extern "C" {

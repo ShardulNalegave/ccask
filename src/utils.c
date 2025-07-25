@@ -160,7 +160,7 @@ int safe_writev(int fd, const struct iovec *iov, int iovcnt) {
         total_written += nwritten;
 
         while (current_iov_idx < iovcnt && nwritten > 0) {
-            if (nwritten < local_iov[current_iov_idx].iov_len) {
+            if ((size_t)nwritten < local_iov[current_iov_idx].iov_len) {
                 local_iov[current_iov_idx].iov_base = (char *)local_iov[current_iov_idx].iov_base + nwritten;
                 local_iov[current_iov_idx].iov_len -= nwritten;
                 nwritten = 0;
@@ -202,7 +202,7 @@ int safe_readv(int fd, struct iovec *iov, int iovcnt) {
         total_read += nread;
 
         while (current_iov_idx < iovcnt && nread > 0) {
-            if (nread < local_iov[current_iov_idx].iov_len) {
+            if ((size_t)nread < local_iov[current_iov_idx].iov_len) {
                 local_iov[current_iov_idx].iov_base = (char *)local_iov[current_iov_idx].iov_base + nread;
                 local_iov[current_iov_idx].iov_len -= nread;
                 nread = 0;
@@ -239,7 +239,7 @@ int safe_pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset) {
         total_written += nwritten;
 
         while (current_iov_idx < iovcnt && nwritten > 0) {
-            if (nwritten < local_iov[current_iov_idx].iov_len) {
+            if ((size_t)nwritten < local_iov[current_iov_idx].iov_len) {
                 local_iov[current_iov_idx].iov_base = (char *)local_iov[current_iov_idx].iov_base + nwritten;
                 local_iov[current_iov_idx].iov_len -= nwritten;
                 nwritten = 0;
@@ -281,7 +281,7 @@ int safe_preadv(int fd, struct iovec *iov, int iovcnt, off_t offset) {
         total_read += nread;
 
         while (current_iov_idx < iovcnt && nread > 0) {
-            if (nread < local_iov[current_iov_idx].iov_len) {
+            if ((size_t)nread < local_iov[current_iov_idx].iov_len) {
                 local_iov[current_iov_idx].iov_base = (char *)local_iov[current_iov_idx].iov_base + nread;
                 local_iov[current_iov_idx].iov_len -= nread;
                 nread = 0;

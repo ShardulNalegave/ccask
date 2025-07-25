@@ -113,6 +113,7 @@ generation_failed:
     close(hintfile_fd);
     file->has_hint = true;
     log_info("Hintfile generation completed (File ID = %" PRIu64 ")", file_id);
+    return NULL;
 }
 
 ccask_status_e ccask_hintfile_generate(ccask_file_t* file) {

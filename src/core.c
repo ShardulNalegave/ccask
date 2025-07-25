@@ -39,23 +39,30 @@ ccask_status_e ccask_init(ccask_options_t opts) {
     CCASK_ATTEMPT(5, res, ccask_files_init(opts.data_dir, opts.datafile_rotate_threshold));
     if (res != CCASK_OK) {
         log_fatal("Couldn't initialize ccask-files");
-        return CCASK_FAIL;
+        goto files_fail;
     }
 
     CCASK_ATTEMPT(5, res, ccask_keydir_init());
     if (res != CCASK_OK) {
         log_fatal("Couldn't initialize keydir");
-        return CCASK_FAIL;
+        goto keydir_fail;
     }
     
     CCASK_ATTEMPT(5, res, ccask_writer_start(opts.writer_ringbuf_capacity));
     if (res != CCASK_OK) {
         log_fatal("Couldn't initialize writer");
-        return CCASK_FAIL;
+        goto writer_fail;
     }
 
     ccask_hintfile_generator_init();
     return CCASK_OK;
+
+writer_fail:
+    ccask_keydir_shutdown();
+keydir_fail:
+    ccask_files_shutdown();
+files_fail:
+    return CCASK_FAIL;
 }
 
 void ccask_shutdown(void) {

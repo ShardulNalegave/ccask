@@ -71,7 +71,7 @@ typedef struct ccask_hintfile_record_header {
 
 typedef struct iovec ccask_hintfile_record_t[2];
 
-ccask_status_e ccask_allocate_hintfile_record(ccask_datafile_record_t record, uint32_t key_size);
+ccask_status_e ccask_allocate_hintfile_record(ccask_hintfile_record_t record, uint32_t key_size);
 
 ccask_status_e ccask_create_hintfile_record(
     ccask_hintfile_record_t record,

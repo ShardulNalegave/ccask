@@ -58,6 +58,9 @@ static ccask_status_e recover_hintfile(ccask_file_t *file) {
 
         if (res != CCASK_OK) {
             log_error("Couldn't recover Hintfile ID = %" PRIu64 " record at position = %" PRIu64, file->file_id, record_pos);
+            free_hintfile_record(record);
+            ccask_hintfile_iter_close(&iter);
+            return CCASK_FAIL;
         }
 
         free_hintfile_record(record); // free memory used by current record's buffers
@@ -96,6 +99,9 @@ static ccask_status_e recover_datafile(ccask_file_t *file) {
 
         if (res != CCASK_OK) {
             log_error("Couldn't recover Datafile ID = %" PRIu64 " record at position = %" PRIu64, file->file_id, record_pos);
+            free_datafile_record(record);
+            ccask_datafile_iter_close(&iter);
+            return CCASK_FAIL;
         }
 
         free_datafile_record(record); // free memory used by current record's buffers
@@ -109,11 +115,18 @@ static ccask_status_e recover_datafile(ccask_file_t *file) {
 static ccask_status_e keydir_recover(void) {
     ccask_file_t *file = ccask_files_get_oldest_file();
     while (file) {
-        // TODO: Return error if partial recovery is disabled and recovery of a file fails
-        if (file->has_hint) recover_hintfile(file);
-        else recover_datafile(file);
+        ccask_status_e status;
+        if (file->has_hint) status = recover_hintfile(file);
+        else status = recover_datafile(file);
+
+        if (status != CCASK_OK) {
+            log_fatal("Couldn't recover from saved datafiles and hintfiles. Aborting init");
+            return CCASK_FAIL;
+        }
+
         file = file->previous;
     }
+    return CCASK_OK;
 }
 
 ccask_status_e ccask_keydir_init(void) {
@@ -144,7 +157,7 @@ ccask_keydir_record_t* ccask_keydir_find(void *key, uint32_t key_size) {
     return entry;
 }
 
-int ccask_keydir_delete(void *key, uint32_t key_size) {
+ccask_status_e ccask_keydir_delete(void *key, uint32_t key_size) {
     ccask_keydir_record_t *entry = ccask_keydir_find(key, key_size);
     if (!entry) {
         return CCASK_FAIL;
@@ -159,7 +172,7 @@ int ccask_keydir_delete(void *key, uint32_t key_size) {
     return CCASK_OK;
 }
 
-int ccask_keydir_upsert(
+ccask_status_e ccask_keydir_upsert(
     void *key,
     uint32_t key_size,
     uint64_t file_id,

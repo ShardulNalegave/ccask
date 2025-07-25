@@ -105,7 +105,7 @@ ccask_status_e ccask_compactor_dump_keydir() {
 
     if (delete_res != CCASK_OK) return delete_res;
 
-    for (int i = 0; i <= curr_temp_id; i++) {
+    for (uint64_t i = 0; i <= curr_temp_id; i++) {
         int res;
         CCASK_ATTEMPT(5, res, ccask_files_change_ext(i, FILE_TEMP_DATA, FILE_DATA));
 

@@ -69,7 +69,9 @@ ccask_status_e ccask_write_record_blocking(ccask_datafile_record_t record) {
     return CCASK_OK;
 }
 
-static void* writer_thread_main(void*) {
+static void* writer_thread_main(void *arg) {
+    (void)arg;
+
     ccask_datafile_record_t record;
     while (true) {
         int res = ccask_writer_ringbuf_pop(record);
@@ -78,6 +80,8 @@ static void* writer_thread_main(void*) {
         ccask_write_record_blocking(record);
         free_datafile_record(record);
     }
+
+    return NULL;
 }
 
 ccask_status_e ccask_writer_start(size_t capacity) {
